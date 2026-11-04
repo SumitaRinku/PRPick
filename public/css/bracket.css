@@ -80,7 +80,7 @@
 .bracket-view .pb2-team.winner { background:color-mix(in srgb,var(--graph-win) 7%,transparent); }
 .bracket-view .pb2-team.winner b,.bracket-view .pb2-team.winner strong { color:var(--graph-win)!important;font-weight:750; }
 .bracket-view .pb2-team.loser b { color:var(--graph-muted)!important; }
-.bracket-view .bracket-chip { top:-17px;left:2px;right:auto;padding:0;border:0;background:transparent;color:var(--graph-muted);font-size:10px;line-height:14px;font-weight:500; }
+.bracket-view .bracket-chip { top:-17px;left:50%;right:auto;transform:translateX(-50%);padding:0;border:0;background:transparent;color:var(--graph-muted);font-size:10px;line-height:14px;font-weight:500; }
 .bracket-view .bracket-chip.live::before { content:"";display:inline-block;width:5px;height:5px;margin:0 4px 1px 0;border-radius:50%;background:currentColor; }
 .bracket-view .bracket-chip.unknown { color:var(--warning-color, #a57433); }
 .bracket-view .bracket-unlinked .pb2-card { border-style:dashed; }
@@ -130,14 +130,14 @@
     border-radius:2px;
 }
 /* Live is a match status, visually separate from the green result treatment. */
-.bracket-view .bracket-chip.live { display:inline-flex;align-items:center;gap:4px;top:-18px;left:0;right:auto;height:15px;line-height:15px;padding:0 5px;border:1px solid color-mix(in srgb,var(--graph-live) 35%,transparent);border-radius:2px;background:var(--graph-live-bg);color:var(--graph-live)!important;font-size:9px;font-weight:750;letter-spacing:.05em;white-space:nowrap;transform:none; }
+.bracket-view .bracket-chip.live { display:inline-flex;align-items:center;gap:4px;top:-18px;left:50%;right:auto;height:15px;line-height:15px;padding:0 5px;border:1px solid color-mix(in srgb,var(--graph-live) 35%,transparent);border-radius:2px;background:var(--graph-live-bg);color:var(--graph-live)!important;font-size:9px;font-weight:750;letter-spacing:.05em;white-space:nowrap;transform:translateX(-50%); }
 .bracket-view .bracket-chip.live::before { width:5px;height:5px;margin:0;background:currentColor;flex-shrink:0; }
 .bracket-view .pb2-card.live,.bracket-view .de-card.live { border-color:var(--graph-live)!important;box-shadow:none!important;animation:none!important; }
 .bracket-view .pb2-card.live:hover { border-color:var(--graph-live)!important; }
 .bracket-live-key { color:var(--graph-live);font-weight:650; }
 .bracket-live-key i { display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor; }
 .bracket-view .sw2-match.live { position:relative;box-shadow:inset 0 0 0 1px var(--graph-live)!important;animation:none!important; }
-.bracket-view .sw2-match.live .bracket-chip.live { top:2px;right:2px;left:auto;width:6px;height:6px;padding:0;border:0;border-radius:50%;background:var(--graph-live);font-size:0;overflow:hidden; }
+.bracket-view .sw2-match.live .bracket-chip.live { top:2px;right:2px;left:auto;transform:none;width:6px;height:6px;padding:0;border:0;border-radius:50%;background:var(--graph-live);font-size:0;overflow:hidden; }
 .bracket-view .sw2-match.live .bracket-chip.live::before { display:none; }
 [data-theme="dark"] .bracket-toolbar { background:#2d3844; }
 [data-theme="dark"] .bracket-controls button { border-radius:2px; }

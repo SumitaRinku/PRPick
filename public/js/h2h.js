@@ -1,22 +1,148 @@
 // h2h.js — 对阵历史弹窗（主页 app.js 与回看页 tournaments.js 共用）。
 // 两页的全局依赖名不同（index: api/logo；tournaments: sharedApi/logoHtml），
 // 这里做运行时适配；弹窗元素约定 #detailModal / #detailModalBody（两页均已存在）。
+//
+// 布局：对阵头图（双方队标 + 交手比分 + 近 5 场走势）→ 数据对比条（交手胜场 / 近况胜率）
+// → 内容区。PC 端交手记录通栏 + 近况双栏并排；移动端（≤640px）改为分段标签
+// 「交手记录 / 队伍1近况 / 队伍2近况」逐个查看，避免两栏挤压导致队名被截断。
 (function () {
     const h2hApi = (...args) => (typeof sharedApi === 'function' ? sharedApi(...args) : api(...args));
     const h2hLogo = (url, darkUrl) => (typeof logoHtml === 'function' ? logoHtml(url, darkUrl) : logo(url, darkUrl));
-    const h2hEscape = value => escapeHtml(value);
+    const esc = value => escapeHtml(value);
 
-    function recentListHtml(items) {
-        if (!items.length) return '<div class="h2h-empty">暂无已结算比赛</div>';
-        return items.map(item => {
-            const isWin = item.result === 'W';
-            return `<li class="h2h-form-row">
-                <span class="h2h-result ${isWin ? 'win' : 'loss'}">${isWin ? '胜' : '负'}</span>
-                <a class="h2h-opp" href="/teams.html?team=${item.opponent_id}">${h2hLogo(item.opponent_logo_url, item.opponent_dark_logo_url)}<span>vs ${h2hEscape(item.opponent)}</span></a>
-                <span class="h2h-score">${h2hEscape(item.score)}</span>
-                <time class="h2h-date">${formatDateTime(item.match_time)}</time>
+    // 短日期：当年 MM-DD，非当年 YY-MM-DD（列表行只需要日期，完整时间放 title）
+    function shortDate(value) {
+        const full = formatDateTime(value);
+        return full ? full.slice(0, full.lastIndexOf(' ')) : '';
+    }
+
+    const pct = (wins, total) => (total ? Math.round(wins / total * 100) : 0);
+
+    // 近 5 场走势小方块：从旧到新排列，最新一场在最右侧
+    function formStreak(recent) {
+        const last = recent.slice(0, 5).reverse();
+        if (!last.length) return '<span class="hh-streak is-empty">暂无战绩</span>';
+        return `<span class="hh-streak" aria-label="近 ${last.length} 场：${last.map(r => (r.result === 'W' ? '胜' : '负')).join('')}">${
+            last.map(r => `<i class="${r.result === 'W' ? 'w' : 'l'}">${r.result}</i>`).join('')
+        }</span>`;
+    }
+
+    function recentRows(items) {
+        if (!items.length) return '<p class="hh-empty">该队赛前暂无已结算比赛</p>';
+        return `<ol class="hh-list">${items.map(item => {
+            const win = item.result === 'W';
+            return `<li class="hh-row ${win ? 'is-win' : 'is-loss'}">
+                <span class="hh-badge">${win ? '胜' : '负'}</span>
+                <a class="hh-opp" href="/teams.html?team=${item.opponent_id}" title="${esc(item.tournament_name || '')}">
+                    ${h2hLogo(item.opponent_logo_url, item.opponent_dark_logo_url)}
+                    <span><small>vs</small> ${esc(item.opponent)}</span>
+                </a>
+                <b class="hh-score">${esc(item.score)}</b>
+                <time datetime="${esc(item.match_time)}" title="${esc(formatDateTime(item.match_time))}">${shortDate(item.match_time)}</time>
             </li>`;
-        }).join('');
+        }).join('')}</ol>`;
+    }
+
+    function meetingRows(list, m) {
+        if (!list.length) return '<p class="hh-empty">两队赛前暂无交手记录</p>';
+        return `<ol class="hh-list">${list.map(h => {
+            const t1Won = h.winner === 'team1';
+            const t2Won = h.winner === 'team2';
+            return `<li class="hh-meet">
+                <div class="hh-meet-meta">
+                    <span title="${esc(h.tournament_name || '')}">${esc(h.tournament_name || '—')}</span>
+                    <time datetime="${esc(h.match_time)}" title="${esc(formatDateTime(h.match_time))}">${shortDate(h.match_time)}</time>
+                </div>
+                <div class="hh-meet-line">
+                    <span class="hh-meet-team ${t1Won ? 'is-win' : ''}">${h2hLogo(m.team1_logo_url, m.team1_dark_logo_url)}<b>${esc(m.team1_name)}</b></span>
+                    <span class="hh-meet-score"><b class="${t1Won ? 'is-win' : ''}">${h.team1_score}</b><i>:</i><b class="${t2Won ? 'is-win' : ''}">${h.team2_score}</b></span>
+                    <span class="hh-meet-team is-right ${t2Won ? 'is-win' : ''}"><b>${esc(m.team2_name)}</b>${h2hLogo(m.team2_logo_url, m.team2_dark_logo_url)}</span>
+                </div>
+            </li>`;
+        }).join('')}</ol>`;
+    }
+
+    // 对比条：左右两队数值按占比分配宽度；两边都为 0 时各占一半
+    function compareBar(label, leftVal, rightVal, leftText, rightText) {
+        const sum = leftVal + rightVal;
+        const left = sum ? Math.round(leftVal / sum * 100) : 50;
+        return `<div class="hh-compare-row${sum ? '' : ' is-empty'}">
+            <b class="${leftVal > rightVal ? 'is-lead' : ''}">${leftText}</b>
+            <div class="hh-compare-track" role="img" aria-label="${label}：${leftText} 对 ${rightText}">
+                <span>${label}</span>
+                <i class="t1" style="width:${left}%"></i><i class="t2" style="width:${100 - left}%"></i>
+            </div>
+            <b class="${rightVal > leftVal ? 'is-lead' : ''}">${rightText}</b>
+        </div>`;
+    }
+
+    function render(data) {
+        const m = data.match;
+        const meets = data.head_to_head;
+        const t1Meet = meets.filter(h => h.winner === 'team1').length;
+        const t2Meet = meets.filter(h => h.winner === 'team2').length;
+        const t1Total = data.team1.wins + data.team1.losses;
+        const t2Total = data.team2.wins + data.team2.losses;
+        const t1Rate = pct(data.team1.wins, t1Total);
+        const t2Rate = pct(data.team2.wins, t2Total);
+
+        const heroTeam = (side, team) => `
+            <a class="hh-hero-team" href="/teams.html?team=${m[`${side}_id`]}">
+                <span class="hh-hero-logo">${h2hLogo(m[`${side}_logo_url`], m[`${side}_dark_logo_url`])}</span>
+                <strong title="${esc(m[`${side}_name`])}">${esc(m[`${side}_name`])}</strong>
+                ${formStreak(team.recent)}
+            </a>`;
+
+        const formPanel = (side, team, rate, total) => `
+            <section class="hh-panel" data-pane="${side}">
+                <header class="hh-panel-head">
+                    <a href="/teams.html?team=${m[`${side}_id`]}">${h2hLogo(m[`${side}_logo_url`], m[`${side}_dark_logo_url`])}<b>${esc(m[`${side}_name`])}</b></a>
+                    <span>近 ${total} 场 <b>${team.wins}胜 ${team.losses}负</b> · ${rate}%</span>
+                </header>
+                ${recentRows(team.recent)}
+            </section>`;
+
+        return `
+        <div class="hh" data-active="meet">
+            <div class="hh-hero">
+                <div class="hh-kicker"><span>对阵历史</span><em>${esc(m.format || '')}${m.format ? ' · ' : ''}${esc(formatDateTime(m.match_time))}</em></div>
+                <div class="hh-hero-grid">
+                    ${heroTeam('team1', data.team1)}
+                    <div class="hh-tally" aria-label="交手战绩 ${t1Meet} 比 ${t2Meet}">
+                        <div class="hh-tally-num"><b class="${t1Meet > t2Meet ? 'is-lead' : ''}">${t1Meet}</b><i>:</i><b class="${t2Meet > t1Meet ? 'is-lead' : ''}">${t2Meet}</b></div>
+                        <small>${meets.length ? `交手 ${meets.length} 场` : '首次交手'}</small>
+                    </div>
+                    ${heroTeam('team2', data.team2)}
+                </div>
+                <div class="hh-compare">
+                    ${compareBar('交手胜场', t1Meet, t2Meet, String(t1Meet), String(t2Meet))}
+                    ${compareBar('近况胜率', t1Rate, t2Rate, t1Total ? `${t1Rate}%` : '—', t2Total ? `${t2Rate}%` : '—')}
+                </div>
+            </div>
+            <div class="hh-tabs" role="tablist" aria-label="对阵历史分类">
+                <button type="button" role="tab" data-tab="meet" aria-selected="true">交手记录<small>${meets.length}</small></button>
+                <button type="button" role="tab" data-tab="team1" aria-selected="false">${esc(m.team1_name)}</button>
+                <button type="button" role="tab" data-tab="team2" aria-selected="false">${esc(m.team2_name)}</button>
+            </div>
+            <div class="hh-body">
+                <section class="hh-panel hh-meets" data-pane="meet">
+                    <header class="hh-panel-head"><b>交手记录</b><span>开赛前 · 最近 ${meets.length} 场</span></header>
+                    ${meetingRows(meets, m)}
+                </section>
+                <div class="hh-forms">
+                    ${formPanel('team1', data.team1, t1Rate, t1Total)}
+                    ${formPanel('team2', data.team2, t2Rate, t2Total)}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function bindTabs(root) {
+        const tabs = root.querySelectorAll('.hh-tabs [data-tab]');
+        tabs.forEach(tab => tab.addEventListener('click', () => {
+            root.dataset.active = tab.dataset.tab;
+            tabs.forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+        }));
     }
 
     async function showMatchHead2Head(matchId) {
@@ -25,48 +151,12 @@
         if (!modalEl || !bodyEl) return;
         try {
             const data = await h2hApi(`/matches/${matchId}/head2head`);
-            const m = data.match;
-            const formPanel = (team, side) => {
-                const teamId = m[`${side}_id`];
-                const name = m[`${side}_name`];
-                const rate = team.wins + team.losses ? Math.round(team.wins / (team.wins + team.losses) * 100) : 0;
-                return `
-                <section class="h2h-panel">
-                    <header class="h2h-panel-head">
-                        <a class="h2h-team-identity" href="/teams.html?team=${teamId}">${h2hLogo(m[`${side}_logo_url`], m[`${side}_dark_logo_url`])}<span><b>${h2hEscape(name)}</b><small>查看队伍详情</small></span></a>
-                        <div class="h2h-record"><b>${rate}%</b><span>近况胜率 · ${team.wins}胜 ${team.losses}负</span></div>
-                    </header>
-                    <ol class="h2h-form">${recentListHtml(team.recent)}</ol>
-                </section>`;
-            };
-            const h2hList = data.head_to_head.length
-                ? data.head_to_head.map(h => {
-                    const team1Won = h.winner === 'team1';
-                    return `<li class="h2h-match-row">
-                        <span class="h2h-score-line">
-                            <b class="${team1Won ? 'win' : 'loss'}">${h2hEscape(m.team1_name)}</b>
-                            <span>${h.team1_score} - ${h.team2_score}</span>
-                            <b class="${team1Won ? 'loss' : 'win'}">${h2hEscape(m.team2_name)}</b>
-                        </span>
-                        <span class="h2h-tournament">${h2hEscape(h.tournament_name || '')}</span>
-                        <time class="h2h-match-date">${formatDateTime(h.match_time)}</time>
-                    </li>`;
-                }).join('')
-                : '<div class="h2h-empty">两队暂无交手记录</div>';
-            bodyEl.innerHTML = `
-                <div class="h2h-hero">
-                    <a href="/teams.html?team=${m.team1_id}">${h2hLogo(m.team1_logo_url, m.team1_dark_logo_url)}<strong>${h2hEscape(m.team1_name)}</strong></a>
-                    <div><span>HEAD TO HEAD</span><b>VS</b><small>${m.format} · ${formatDateTime(m.match_time)}</small></div>
-                    <a href="/teams.html?team=${m.team2_id}">${h2hLogo(m.team2_logo_url, m.team2_dark_logo_url)}<strong>${h2hEscape(m.team2_name)}</strong></a>
-                </div>
-                <div class="h2h-grid">${formPanel(data.team1, 'team1')}${formPanel(data.team2, 'team2')}</div>
-                <section class="h2h-panel h2h-h2h">
-                    <header class="h2h-section-head"><div><span>DIRECT MEETINGS</span><h3>交手记录</h3></div><b>${data.head_to_head.length} 场</b></header>
-                    <ol class="h2h-matches">${h2hList}</ol>
-                </section>
-            `;
+            bodyEl.innerHTML = render(data);
+            bindTabs(bodyEl.querySelector('.hh'));
             modalEl.hidden = false;
             document.body.classList.add('modal-open');
+            const panel = modalEl.querySelector('.modal-panel');
+            if (panel) panel.scrollTop = 0;
         } catch (error) {
             alert(error.message);
         }

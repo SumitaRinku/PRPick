@@ -1,0 +1,357 @@
+/* =====================================================================
+   polish.css —— 全站视觉精修层（最后加载，覆盖 style.css 中叠加的历史规则）
+   原则：保留 HLTV 式深海军蓝扁平皮肤与信息密度，只做层次、对齐、圆角、
+   状态色与交互反馈的统一；不改布局结构与 DOM。
+   ===================================================================== */
+
+:root{
+  --radius-card:6px;
+  --radius-ctl:4px;
+  --accent-line:#5a8fc1;
+  --header-bg:#182330;
+  --header-band:#1f2a37;
+  --live:#d9485b;
+  --live-soft:rgba(217,72,91,.12);
+  --gold:#c79435;
+  --silver:#8a97a8;
+  --bronze:#b07247;
+  --card-shadow:0 1px 2px rgba(18,31,48,.06),0 2px 8px rgba(18,31,48,.04);
+  --card-shadow-hover:0 4px 16px rgba(18,31,48,.12);
+  --page-glow:radial-gradient(1200px 380px at 50% -120px,rgba(90,143,193,.18),transparent 70%);
+}
+html[data-theme=dark]{
+  --live:#ef6a7c;
+  --live-soft:rgba(239,106,124,.13);
+  --gold:#e3b341;
+  --silver:#a8b4c4;
+  --bronze:#c98a5f;
+  --card-shadow:0 1px 2px rgba(0,0,0,.25);
+  --card-shadow-hover:0 6px 20px rgba(0,0,0,.35);
+  --page-glow:radial-gradient(1200px 420px at 50% -140px,rgba(61,130,189,.16),transparent 70%);
+}
+
+/* ---------- 页面底色：顶部一抹品牌蓝光，避免整页死平 ---------- */
+body{background-image:var(--page-glow);background-repeat:no-repeat;background-attachment:scroll;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(61,130,189,.35)}
+
+/* ---------- 顶栏 ---------- */
+.hero{position:relative;background:linear-gradient(180deg,#223040 0%,#1d2834 100%);border-bottom:3px solid var(--accent-line)}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(600px 160px at 18% 100%,rgba(90,143,193,.16),transparent 70%),
+  repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 2px,transparent 2px 12px)}
+.hero>*{position:relative}
+.hero nav{background:var(--header-bg);border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.brand-logo{padding-right:14px;margin-right:2px}
+.brand-logo img{height:26px!important;max-width:140px;transition:filter .2s ease}
+.brand-logo:hover img{filter:brightness(1.12) drop-shadow(0 0 10px rgba(61,143,214,.35))}
+.site-nav a{position:relative;letter-spacing:.02em;color:#c3cfdc}
+.site-nav a:hover{background:rgba(61,130,189,.18);color:#fff}
+.site-nav a.active{background:var(--primary-color);color:#fff;box-shadow:inset 0 -3px 0 rgba(255,255,255,.55)}
+.hero section{position:relative;padding:14px 18px 14px 20px;background:linear-gradient(90deg,#2b3746 0%,#283444 60%,#25313f 100%);border:1px solid #3b4b5d;border-top:0}
+.hero section::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 2px 2px 0;background:var(--accent-line)}
+.hero h1{letter-spacing:.01em}
+.hero p{color:#aebccb}
+
+/* 顶栏登录表单 / 用户信息 */
+#userPanel input,#auth input{border-radius:var(--radius-ctl);transition:border-color .15s ease,background-color .15s ease}
+#userPanel input:focus,#auth input:focus{background:#0d151e;border-color:var(--accent-line)}
+#userPanel button,#auth button{border-radius:var(--radius-ctl)}
+#userPanel span,#auth span{border-radius:var(--radius-ctl)}
+.theme-toggle{border-radius:var(--radius-ctl);transition:background-color .15s ease,color .15s ease,transform .2s ease}
+.theme-toggle:hover{transform:rotate(-12deg)}
+
+/* ---------- 正文容器与 header 对齐（桌面端左右边缘与顶栏一致） ---------- */
+@media(min-width:1010px){
+  .layout,.page-shell{padding-left:0!important;padding-right:0!important}
+}
+.layout,.page-shell{padding-top:16px}
+
+/* ---------- 通用卡片：统一圆角与阴影层级 ---------- */
+.panel,.prediction-card,.stat,.archive-match-v2,.modal-panel,.table-wrap,
+.home-match-browser,.home-tournament-group,.home-bracket,.filters-bar{border-radius:var(--radius-card)}
+.panel,.prediction-card,.stat,.table-wrap,.home-match-browser,.home-tournament-group{box-shadow:var(--card-shadow)}
+.home-match-browser,.home-tournament-group{overflow:hidden}
+button,.button,input,select{border-radius:var(--radius-ctl)}
+button:active:not(:disabled),.button:active{transform:translateY(1px)}
+
+/* ---------- 主页：筛选区 ---------- */
+.home-browser-head h2{letter-spacing:.01em}
+.game-switch{border-radius:var(--radius-ctl);overflow:hidden}
+.game-switch button{transition:background-color .15s ease,color .15s ease}
+.status-filter{position:relative;transition:background-color .15s ease,color .15s ease}
+.status-filter.active{box-shadow:inset 0 -3px 0 rgba(255,255,255,.5)}
+.tournament-filter{border-radius:var(--radius-ctl);transition:border-color .15s ease,background-color .15s ease,color .15s ease}
+.tournament-filter:hover{border-color:var(--primary-color)}
+.tournament-filter b{border-radius:3px}
+
+/* ---------- 主页：赛事分组 ---------- */
+.home-tournament-group{border:1px solid var(--border-strong)}
+.home-tournament-group-head{position:relative;padding:10px 14px;background:linear-gradient(90deg,#2b3746,#263241)}
+.home-tournament-group-head::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent-line)}
+.home-tournament-group-head a.group-link{transition:color .15s ease}
+.home-tournament-group-head a.group-link:hover{color:#fff}
+.home-tournament-group-head a.group-link::after{content:"›";margin-left:8px;font-size:18px;line-height:1;opacity:.45;transition:transform .15s ease,opacity .15s ease}
+.home-tournament-group-head a.group-link:hover::after{opacity:.9;transform:translateX(3px)}
+.home-tournament-group-head .tournament-logo{border-radius:3px}
+
+/* ---------- 主页：比赛卡片 ---------- */
+.home-layout .match-card{border-radius:var(--radius-card);box-shadow:var(--card-shadow);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.home-layout .match-card:hover{border-color:color-mix(in srgb,var(--state-color,var(--primary-color)) 55%,var(--border-color));box-shadow:var(--card-shadow-hover);transform:translateY(-1px)}
+.home-layout .match-card>:last-child{margin-bottom:0!important}
+.home-layout .match-card::after{width:3px;border-radius:var(--radius-card) 0 0 var(--radius-card)}
+.home-layout .match-teams .team img,.home-layout .match-teams .team .placeholder{border-radius:6px;transition:transform .2s ease}
+.home-layout .match-card:hover .match-teams .team img{transform:scale(1.06)}
+.home-layout .match-teams .team strong{letter-spacing:.01em}
+.home-layout .match-teams .team-link:hover strong{color:var(--primary-color)}
+.home-layout .match-center .match-vs{opacity:.75}
+.match-format,.game-pill,.meta span,.badge{border-radius:3px}
+
+/* 状态徽标：进行中改为半透明红底 + 呼吸圆点（原浅粉底在暗色下突兀） */
+.match-status{border-radius:999px!important;padding:2px 9px!important;letter-spacing:.02em}
+.match-status.match-settling{display:inline-flex;align-items:center;gap:6px;background:var(--live-soft)!important;color:var(--live)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--live) 35%,transparent)}
+.match-status.match-settling::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:polishPulse 1.6s ease-out infinite}
+.match-status.match-open,.match-status.match-picked,.match-status.match-closed{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary-color) 30%,transparent)}
+html[data-theme=dark] .match-status.match-open,html[data-theme=dark] .match-status.match-picked,html[data-theme=dark] .match-status.match-closed{color:var(--pick-text)}
+@keyframes polishPulse{0%{box-shadow:0 0 0 0 currentColor}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+/* 比分选择 */
+.score-pick{border-radius:var(--radius-ctl)!important;transition:border-color .15s ease,background-color .15s ease,transform .15s ease!important}
+.score-pick:hover{border-color:var(--primary-color)!important}
+.score-pick.picked{box-shadow:inset 0 0 0 1px var(--primary-color)!important}
+
+/* 我的预测条 */
+.user-prediction .share-trigger{border-radius:999px;padding:3px 11px;font-weight:700;transition:background-color .15s ease,border-color .15s ease}
+.user-prediction .share-trigger:hover{border-color:var(--primary-color)}
+
+/* 赛程图折叠头 */
+.home-bracket-head{transition:background-color .15s ease}
+
+/* ---------- 赛事回看 ---------- */
+.archive-tournament,.tournament-card{border-radius:var(--radius-card);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.archive-tournament:hover,.tournament-card:hover{box-shadow:var(--card-shadow-hover)}
+
+/* ---------- 排行榜 ---------- */
+.leaderboard-row{transition:background-color .15s ease}
+.leaderboard-row .rank{font-variant-numeric:tabular-nums}
+.leaderboard-screen .board-filters,.leaderboard-screen .board-panel{border-radius:var(--radius-card)}
+.leaderboard-screen .board-podium-card{overflow:hidden;border-radius:var(--radius-card);background:linear-gradient(135deg,color-mix(in srgb,var(--podium-tone) 14%,var(--surface-1)) 0%,var(--surface-1) 62%);box-shadow:var(--card-shadow);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.leaderboard-screen .board-podium-card::after{content:"";position:absolute;right:-18px;bottom:-30px;width:110px;height:110px;border-radius:50%;border:14px solid var(--podium-tone);opacity:.07;pointer-events:none}
+.leaderboard-screen .board-podium-card:hover{transform:translateY(-2px);border-color:var(--podium-tone);box-shadow:var(--card-shadow-hover);filter:none}
+.leaderboard-screen .board-podium-card.first .podium-score{color:var(--podium-tone)}
+
+/* ---------- 弹窗 ---------- */
+.modal-backdrop{background:rgba(8,14,22,.66);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.modal-panel{border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.modal:not([hidden]) .modal-panel{animation:polishModalIn .2s ease-out}
+/* 关闭按钮在 DOM 中早于弹窗内容；内容里若有带背景的定位元素（如对阵历史头图）会盖住它，故显式抬高层级 */
+.modal-close{z-index:5;display:grid;place-items:center;font-size:20px;line-height:1;font-weight:500;border-radius:var(--radius-ctl);transition:background-color .15s ease}
+@keyframes polishModalIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+
+/* 分享弹窗：竖版 4:5 分享图 */
+.share-panel{width:min(440px,calc(100vw - 24px))}
+.share-body{padding:12px 4px 4px}
+.share-canvas-wrap{border-radius:8px;background:#0b121b;border-color:rgba(255,255,255,.08);min-height:0;aspect-ratio:4/5;max-height:68vh;margin:0 auto}
+.share-canvas-wrap img{width:100%;height:100%;object-fit:contain}
+.share-canvas-wrap.loading::after{content:"";width:34px;height:34px;padding:0;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:#5aa7ea;animation:polishSpin .8s linear infinite}
+.share-actions{flex-wrap:wrap;gap:8px}
+.share-actions .button{min-width:120px;flex:1 1 0}
+.share-actions .button[hidden]{display:none}
+.share-hint{transition:color .2s ease}
+.share-hint.flash{color:var(--success-color);font-weight:700}
+@keyframes polishSpin{to{transform:rotate(360deg)}}
+
+/* ---------- 页脚 ---------- */
+.site-footer{margin-top:28px;padding:18px 14px 20px;background:linear-gradient(180deg,#202b38,#1a2430);border-top:3px solid var(--accent-line);text-align:center}
+.site-footer::before{content:"PRBET · CS2 / Valorant 赛事竞猜";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
+.footer-links a{border-radius:999px;padding:5px 12px;transition:border-color .15s ease,background-color .15s ease,color .15s ease}
+.site-footer .icp-info:empty{display:none}
+
+/* ---------- 回到顶部等悬浮按钮 ---------- */
+.back-to-top,#backToTop{border-radius:50%!important;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--secondary-color);background-clip:padding-box;border:2px solid transparent}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 移动端 ---------- */
+@media(max-width:920px){
+  .brand-logo{padding-right:0}
+  .site-nav a.active{box-shadow:inset 0 -2px 0 rgba(255,255,255,.55)}
+}
+@media(max-width:760px){
+  .home-layout .match-card:hover{transform:none}
+  .home-tournament-group-head{padding:8px 10px}
+  .site-footer::before{font-size:10px;letter-spacing:.1em}
+}
+@media(max-width:520px){
+  .hero{padding-bottom:0}
+  .hero::before{display:none}
+  .theme-toggle,#userPanel .theme-toggle{height:32px!important;min-height:0!important;width:32px!important;align-self:flex-start}
+  .theme-toggle svg{width:16px!important;height:16px!important}
+  .leaderboard-screen .board-podium-card::after{display:none}
+  .brand-logo img{height:22px!important}
+  .share-actions .button{min-width:0}
+}
+
+/* =====================================================================
+   对阵历史弹窗（h2h.js 渲染，根节点 .hh）
+   PC：头图 + 对比条 + 交手记录通栏 + 双方近况双栏；
+   移动（≤640px）：头图压缩 + 吸顶分段标签，一次只显示一个面板。
+   ===================================================================== */
+.hh{--hh-t1:var(--primary-color);--hh-t2:#c9772f;--hh-win:#1f9a68;--hh-loss:#cf4a5e;--hh-t1-soft:rgba(47,111,167,.10);--hh-t2-soft:rgba(201,119,47,.10)}
+html[data-theme=dark] .hh{--hh-t2:#e0904a;--hh-win:#3cbf86;--hh-loss:#ef6a7c;--hh-t1-soft:rgba(61,130,189,.16);--hh-t2-soft:rgba(224,144,74,.13)}
+.modal-panel:has(.hh){width:min(780px,100%)}
+.hh{display:flex;flex-direction:column;gap:10px;color:var(--text-primary)}
+.hh img,.hh .placeholder{flex:0 0 auto;object-fit:contain;padding:0;border:0;border-radius:3px;background:transparent;box-shadow:none}
+.hh .placeholder{display:grid;place-items:center;color:var(--text-secondary);font-size:8px;font-weight:800;letter-spacing:.04em;background:var(--surface-5)}
+.hh a{color:inherit;text-decoration:none}
+
+/* ---- 头图 ---- */
+.hh-hero{position:relative;overflow:hidden;padding:12px 14px 14px;border:1px solid var(--border-color);border-radius:var(--radius-card,6px);
+  background:linear-gradient(90deg,var(--hh-t1-soft) 0%,transparent 38%,transparent 62%,var(--hh-t2-soft) 100%),var(--surface-4)}
+.hh-hero::before,.hh-hero::after{content:"";position:absolute;top:0;bottom:0;width:3px}
+.hh-hero::before{left:0;background:var(--hh-t1)}.hh-hero::after{right:0;background:var(--hh-t2)}
+.hh-kicker{display:flex;align-items:baseline;gap:10px;padding-right:36px;margin-bottom:10px;min-width:0}
+.hh-kicker span{flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--primary-color)}
+.hh-kicker em{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-size:12px;font-weight:700;color:var(--text-secondary)}
+.hh-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px}
+.hh-hero-team{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:4px;border-radius:4px;transition:background-color .15s ease}
+.hh-hero-team:hover{background:rgba(127,145,168,.12)}
+.hh-hero-team:hover strong{color:var(--primary-color)}
+.hh-hero-logo{display:grid;place-items:center;width:64px;height:64px;border-radius:6px;background:var(--surface-input);border:1px solid var(--border-soft)}
+html[data-theme=dark] .hh-hero-logo{background:rgba(0,0,0,.18);border-color:var(--border-soft)}
+.hh-hero-logo img,.hh-hero-logo .placeholder{width:48px;height:48px}
+.hh-hero-team strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:800;color:var(--text-heading);transition:color .15s ease}
+.hh-streak{display:inline-flex;gap:3px}
+.hh-streak i{display:grid;place-items:center;width:17px;height:17px;border-radius:3px;font-style:normal;font-size:9px;font-weight:800;color:#fff}
+.hh-streak i.w{background:var(--hh-win)}.hh-streak i.l{background:var(--hh-loss)}
+.hh-streak.is-empty{font-size:11px;font-weight:700;color:var(--text-secondary)}
+.hh-tally{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:96px}
+.hh-tally-num{display:flex;align-items:center;gap:8px;font-size:34px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.hh-tally-num i{font-style:normal;font-size:22px;opacity:.6}
+.hh-tally-num b:first-child.is-lead{color:var(--hh-t1)}.hh-tally-num b:last-child.is-lead{color:var(--hh-t2)}
+.hh-tally small{padding:2px 8px;border-radius:999px;background:var(--surface-5);font-size:11px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+
+/* 对比条 */
+.hh-compare{display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-color)}
+.hh-compare-row{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:10px}
+.hh-compare-row>b{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.hh-compare-row>b:first-child{text-align:right}
+.hh-compare-row>b:first-child.is-lead{color:var(--hh-t1)}.hh-compare-row>b:last-child.is-lead{color:var(--hh-t2)}
+.hh-compare-track{position:relative;display:flex;gap:2px;height:18px;border-radius:3px;overflow:hidden;background:var(--surface-5)}
+.hh-compare-track i{display:block;height:100%;transition:width .4s ease}
+.hh-compare-track i.t1{background:var(--hh-t1)}.hh-compare-track i.t2{background:var(--hh-t2)}
+.hh-compare-track i[style*="width:0%"]{display:none}
+.hh-compare-track span{position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}
+.hh-compare-row.is-empty .hh-compare-track i{background:transparent}
+.hh-compare-row.is-empty .hh-compare-track span{color:var(--text-secondary);text-shadow:none}
+
+/* ---- 分段标签（仅移动端显示） ---- */
+.hh-tabs{display:none}
+
+/* ---- 面板 ---- */
+.hh-body{display:flex;flex-direction:column;gap:10px}
+.hh-forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.hh-panel{min-width:0;padding:10px;border:1px solid var(--border-color);border-radius:var(--radius-card,6px);background:var(--surface-3)}
+.hh-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;min-width:0}
+.hh-panel-head>b{font-size:14px;font-weight:800;color:var(--text-heading)}
+.hh-panel-head>a{display:flex;align-items:center;gap:7px;min-width:0}
+.hh-panel-head>a img,.hh-panel-head>a .placeholder{width:22px;height:22px}
+.hh-panel-head>a b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:var(--text-heading)}
+.hh-panel-head>a:hover b{color:var(--primary-color)}
+.hh-panel-head>span{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.hh-panel-head>span b{color:var(--text-heading)}
+.hh-forms [data-pane=team1]{border-top:3px solid var(--hh-t1)}
+.hh-forms [data-pane=team2]{border-top:3px solid var(--hh-t2)}
+.hh-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.hh-empty{margin:0;padding:14px 8px;border:1px dashed var(--border-color);border-radius:4px;text-align:center;font-size:12px;font-weight:700;color:var(--text-secondary)}
+
+/* 近况行 */
+.hh-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;align-items:center;gap:8px;min-height:34px;padding:5px 8px 5px 6px;border:1px solid var(--border-soft);border-left:3px solid var(--hh-loss);border-radius:4px;background:var(--surface-input);transition:background-color .15s ease}
+.hh-row.is-win{border-left-color:var(--hh-win)}
+.hh-row:hover{background:var(--row-hover)}
+.hh-badge{display:grid;place-items:center;width:22px;height:20px;border-radius:3px;font-size:11px;font-weight:800;color:#fff;background:var(--hh-loss)}
+.hh-row.is-win .hh-badge{background:var(--hh-win)}
+.hh-opp{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px;font-weight:700;color:var(--text-heading)}
+.hh-opp img,.hh-opp .placeholder{width:20px;height:20px}
+.hh-opp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hh-opp small{font-size:10px;font-weight:700;color:var(--text-secondary)}
+.hh-opp:hover span{color:var(--primary-color)}
+.hh-score{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-heading)}
+.hh-row time{min-width:40px;text-align:right;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-secondary);white-space:nowrap}
+
+/* 交手记录行 */
+.hh-meet{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--border-soft);border-radius:4px;background:var(--surface-input);transition:background-color .15s ease}
+.hh-meet:hover{background:var(--row-hover)}
+.hh-meet-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hh-meet-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700;color:var(--text-heading)}
+.hh-meet-meta time{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.hh-meet-line{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;min-width:0}
+.hh-meet-team{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0;color:var(--text-secondary)}
+.hh-meet-team.is-right{justify-content:flex-start}
+.hh-meet-team img,.hh-meet-team .placeholder{width:22px;height:22px}
+.hh-meet-team b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700}
+.hh-meet-team.is-win{color:var(--text-heading)}.hh-meet-team.is-win b{font-weight:800}
+.hh-meet-team:not(.is-win) img{opacity:.6}
+.hh-meet-score{display:flex;align-items:center;gap:5px;min-width:58px;justify-content:center;padding:3px 8px;border-radius:3px;background:var(--surface-4);font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.hh-meet-score i{font-style:normal;opacity:.6}
+.hh-meet-score b.is-win{color:var(--hh-win)}
+
+/* ---- 移动端 ---- */
+@media(max-width:640px){
+  .hh{gap:8px}
+  .hh-hero{padding:10px 10px 12px}
+  .hh-kicker{flex-direction:column;gap:1px;margin-bottom:8px}
+  .hh-hero-grid{gap:6px}
+  .hh-hero-logo{width:52px;height:52px}
+  .hh-hero-logo img,.hh-hero-logo .placeholder{width:38px;height:38px}
+  .hh-hero-team strong{font-size:14px}
+  .hh-streak{gap:2px}.hh-streak i{width:14px;height:14px;font-size:8px}
+  .hh-tally{min-width:72px}
+  .hh-tally-num{font-size:28px;gap:6px}.hh-tally-num i{font-size:18px}
+  .hh-tally small{font-size:10px;padding:2px 6px}
+  .hh-compare{margin-top:10px;padding-top:10px}
+  .hh-compare-row{grid-template-columns:36px minmax(0,1fr) 36px;gap:8px}
+  .hh-compare-row>b{font-size:12px}
+
+  /* 吸顶分段标签：覆盖 ≤520px 全局 button{width:100%} 与按钮皮肤 */
+  .hh-tabs{position:sticky;top:-12px;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:3px;margin:0 -2px;border:1px solid var(--border-color);border-radius:6px;background:var(--surface-4);box-shadow:0 4px 10px -6px rgba(0,0,0,.25)}
+  .hh-tabs button{width:auto;min-width:0;min-height:36px;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 6px;border:0;border-radius:4px;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:800;box-shadow:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hh-tabs button:hover{background:rgba(127,145,168,.14);color:var(--text-heading);filter:none}
+  .hh-tabs button[aria-selected=true]{background:var(--surface-input);color:var(--text-heading);box-shadow:0 1px 3px rgba(18,31,48,.16)}
+  .hh-tabs button[data-tab=meet][aria-selected=true]{box-shadow:inset 0 -2px 0 var(--primary-color),0 1px 3px rgba(18,31,48,.16)}
+  .hh-tabs button[data-tab=team1][aria-selected=true]{box-shadow:inset 0 -2px 0 var(--hh-t1),0 1px 3px rgba(18,31,48,.16)}
+  .hh-tabs button[data-tab=team2][aria-selected=true]{box-shadow:inset 0 -2px 0 var(--hh-t2),0 1px 3px rgba(18,31,48,.16)}
+  .hh-tabs small{flex:0 0 auto;padding:0 5px;border-radius:999px;background:var(--surface-5);font-size:10px;line-height:16px;color:var(--text-secondary)}
+
+  /* 一次只显示当前标签对应的面板 */
+  .hh-forms{grid-template-columns:1fr;gap:0}
+  .hh [data-pane]{display:none}
+  .hh[data-active=meet] [data-pane=meet],.hh[data-active=team1] [data-pane=team1],.hh[data-active=team2] [data-pane=team2]{display:block}
+  .hh-panel{padding:8px;border-top-width:1px}
+  .hh-forms [data-pane=team1],.hh-forms [data-pane=team2]{border-top-width:3px}
+
+  .hh-row{min-height:40px;padding:6px 8px 6px 6px}
+  .hh-opp{font-size:13px}
+  .hh-meet{grid-template-columns:1fr;gap:6px;padding:8px}
+  .hh-meet-meta{flex-direction:row;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
+  .hh-meet-meta time{flex:0 0 auto}
+  .hh-meet-line{gap:8px}
+  .hh-meet-team{gap:5px}
+  .hh-meet-team img,.hh-meet-team .placeholder{width:20px;height:20px}
+  .hh-meet-score{min-width:52px;padding:3px 6px;font-size:14px}
+}
+@media(max-width:360px){
+  .hh-hero-logo{width:44px;height:44px}
+  .hh-hero-logo img,.hh-hero-logo .placeholder{width:32px;height:32px}
+  .hh-tally{min-width:60px}.hh-tally-num{font-size:24px}
+  .hh-tabs button{font-size:12px;padding:6px 4px}
+  .hh-meet-team b{font-size:12px}
+}
+
+/* 尊重减少动态偏好 */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}

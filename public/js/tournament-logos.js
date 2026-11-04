@@ -59,30 +59,35 @@ function tournamentLogo(name, gameType, logoUrl) {
     return `<img class="tournament-logo" src="${use}" data-light="${src}" data-try="${use}" data-variant="${use === src ? 'light' : 'dark'}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="tournamentLogoLoaded(this)" onerror="tournamentLogoError(this)">`;
 }
 
-// ===== 深色 logo 暗色模式自动反色 =====
+// ===== 深色 logo 暗色模式处理 =====
 // 赛事回看页的 logo 可能没有 -dark 变体（尤其是管理员上传的黑色 logo），
-// 在暗色底上几乎不可见。这里采样图片亮度与彩色像素占比，仅对「整体偏黑且接近黑白」的
-// logo 加反色类；红色等彩色 logo 经 invert + hue-rotate 后颜色会变浅，必须保持原样。
+// 在暗色底上几乎不可见。这里采样一次亮度与彩度，把深色 logo 分两种处理方式：
+//   invert —— 接近黑白的深色 logo：反色后变成浅色字标，保持原有版式；
+//   plate  —— 深色但带品牌色的 logo：反色会把红色变浅、蓝色变橙，改为垫浅色底板；
+// 已自带亮色元素或整体够亮的 logo 不动。
 // 采样结果写入 data-dark-logo，主题切换时直接复用，避免重复绘制。
-const DARK_LOGO_LUMINANCE = 96; // 0-255，低于该平均亮度才可能需要反色
-const DARK_LOGO_LIGHT_RATIO = 0.15; // 亮色像素占比达到该值，视为已自带亮色元素
-const DARK_LOGO_CHROMA = 0.25; // 单像素 HSV 饱和度达到该值，视为彩色像素
-const DARK_LOGO_COLOR_RATIO = 0.5; // 彩色像素占比达到该值，视为彩色 logo，不反色
+const DARK_LOGO_LUMINANCE = 110; // 0-255，平均亮度低于该值才可能需要处理
+const DARK_LOGO_LIGHT_RATIO = 0.25; // 亮色像素占比达到该值，视为已自带亮色元素
+const DARK_LOGO_CHROMA = 0.2; // 平均彩度达到该值，视为带品牌色的 logo
 
-function measureDarkLogo(img) {
-    if (!img.naturalWidth || !img.naturalHeight) return false;
+function analyzeTournamentLogo(img) {
+    if (!img.naturalWidth || !img.naturalHeight) return '';
     try {
-        const size = 24;
+        const size = 32;
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(img, 0, 0, size, size);
+        // 等比居中绘制：非正方形 logo（如 EWC 75×15 的长条字标）也能取到真实笔画
+        const scale = Math.min(size / img.naturalWidth, size / img.naturalHeight);
+        const width = img.naturalWidth * scale;
+        const height = img.naturalHeight * scale;
+        ctx.drawImage(img, (size - width) / 2, (size - height) / 2, width, height);
         const { data } = ctx.getImageData(0, 0, size, size);
         let luminance = 0;
-        let weight = 0;
+        let chroma = 0;
         let lightWeight = 0;
-        let colorWeight = 0;
+        let weight = 0;
         for (let i = 0; i < data.length; i += 4) {
             const alpha = data[i + 3] / 255;
             if (alpha < 0.15) continue; // 透明区域不参与统计
@@ -90,28 +95,29 @@ function measureDarkLogo(img) {
             const g = data[i + 1];
             const b = data[i + 2];
             const value = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const saturation = max ? (max - min) / max : 0;
+            // 彩度取绝对差值而非 HSV 饱和度：近黑的深蓝/深灰单像素饱和度接近 1，
+            // 但视觉上就是黑色，按饱和度统计会把它们误判成彩色 logo 而漏掉反色。
+            chroma += (Math.max(r, g, b) - Math.min(r, g, b)) / 255 * alpha;
             luminance += value * alpha;
             weight += alpha;
-            if (value >= 160) lightWeight += alpha;
-            if (saturation >= DARK_LOGO_CHROMA) colorWeight += alpha;
+            if (value >= 150) lightWeight += alpha;
         }
-        if (!weight || lightWeight / weight >= DARK_LOGO_LIGHT_RATIO) return false; // 已有亮色元素则无需反色
-        if (colorWeight / weight >= DARK_LOGO_COLOR_RATIO) return false; // 彩色 logo 反色会变色/变浅，保持原样
-        return luminance / weight < DARK_LOGO_LUMINANCE;
+        if (!weight || lightWeight / weight >= DARK_LOGO_LIGHT_RATIO) return '';
+        if (luminance / weight >= DARK_LOGO_LUMINANCE) return '';
+        return chroma / weight >= DARK_LOGO_CHROMA ? 'plate' : 'invert';
     } catch (error) {
-        return false; // 跨域或解码失败：保持原样
+        return ''; // 跨域或解码失败：保持原样
     }
 }
 
 function applyTournamentLogoInvert(img) {
     if (img.dataset.darkLogo === undefined && img.complete && img.naturalWidth) {
-        img.dataset.darkLogo = measureDarkLogo(img) ? '1' : '0';
+        // -dark 变体本身就是给暗色底设计的，不再二次处理
+        img.dataset.darkLogo = img.dataset.variant === 'dark' ? '' : analyzeTournamentLogo(img);
     }
-    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-    img.classList.toggle('tournament-logo-invert', dark && img.dataset.darkLogo === '1');
+    const mode = document.documentElement.getAttribute('data-theme') === 'dark' ? img.dataset.darkLogo : '';
+    img.classList.toggle('tournament-logo-invert', mode === 'invert');
+    img.classList.toggle('tournament-logo-plate', mode === 'plate');
 }
 
 function tournamentLogoLoaded(img) {
@@ -129,7 +135,7 @@ function tournamentLogoError(img) {
     img.dataset.variant = 'light';
     // 换源后重新采样亮度，避免沿用上一张图的判断结果
     delete img.dataset.darkLogo;
-    img.classList.remove('tournament-logo-invert');
+    img.classList.remove('tournament-logo-invert', 'tournament-logo-plate');
     img.src = light;
 }
 window.tournamentLogoError = tournamentLogoError;
@@ -147,7 +153,7 @@ function applyTournamentLogoTheme() {
             img.dataset.variant = want === light ? 'light' : 'dark';
             // 换源后亮度可能完全不同（如 -dark 白色变体），需重新采样
             delete img.dataset.darkLogo;
-            img.classList.remove('tournament-logo-invert');
+            img.classList.remove('tournament-logo-invert', 'tournament-logo-plate');
             img.src = want;
         }
         applyTournamentLogoInvert(img);

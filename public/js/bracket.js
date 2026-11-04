@@ -485,7 +485,7 @@ function swissMatchNodeClean(match) {
     const outcome = bracketGraphEngine.result(match);
     const scored = outcome.finished && outcome.scores.every(score => score !== null);
     const score = scored ? `${outcome.scores[0]}:${outcome.scores[1]}` : 'vs';
-    const button = `<button type="button" class="${classes}" ${attrs} aria-label="${escapeHtml(`${live ? '进行中 · ' : ''}${match.team1_name || 'TBD'} ${score} ${match.team2_name || 'TBD'}`)}" title="${escapeHtml(match.name || 'Swiss match')}">
+    const button = `<button type="button" class="${classes}"${match.id && !match.__placeholder ? ` data-match-id="${Number(match.id)}"` : ''} ${attrs} aria-label="${escapeHtml(`${live ? '进行中 · ' : ''}${match.team1_name || 'TBD'} ${score} ${match.team2_name || 'TBD'}`)}" title="${escapeHtml(match.name || 'Swiss match')}">
         ${badge}
         ${swissMatchLogo(match, 1)}
         <span class="sw2-vs${scored ? ' scored' : ''}">${score}</span>
@@ -724,7 +724,7 @@ function playoffCardClean(match, dropsToLower = false) {
     const interaction = action
         ? `role="button" tabindex="0" onclick="${action}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${action}}"`
         : '';
-    return `<div class="pb2-card ${match.status || ''} ${tbd ? 'tbd' : ''} ${live ? 'live' : ''}" ${interaction} title="${escapeHtml(title)}">
+    return `<div class="pb2-card ${match.status || ''} ${tbd ? 'tbd' : ''} ${live ? 'live' : ''}"${match.id && !match.__placeholder ? ` data-match-id="${Number(match.id)}"` : ''} ${interaction} title="${escapeHtml(title)}">
         ${playoffTeamRowClean(match, 1, dropsToLower)}
         ${playoffTeamRowClean(match, 2, dropsToLower)}
     </div>`;
@@ -789,7 +789,7 @@ function compactBracketCard(match, prefix = 'de', flow = null) {
     const interaction = action
         ? `role="button" tabindex="0" onclick="${action}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${action}}"`
         : '';
-    return `<div class="${prefix}-card ${match.status || ''} ${tbd ? 'tbd' : ''} ${live ? 'live' : ''}" ${interaction} title="${escapeHtml(title)}">
+    return `<div class="${prefix}-card ${match.status || ''} ${tbd ? 'tbd' : ''} ${live ? 'live' : ''}"${match.id && !match.__placeholder ? ` data-match-id="${Number(match.id)}"` : ''} ${interaction} title="${escapeHtml(title)}">
         ${bracketTeamRowClean(match, 1, prefix, flow)}
         ${bracketTeamRowClean(match, 2, prefix, flow)}
     </div>`;
@@ -888,8 +888,8 @@ function doubleElimRound(label, matches, laneHeight, cardHeight, flow = null, na
 
 function doubleElimLane(label, rounds, tone, bracketNarrowFlags = null) {
     const cardHeight = 48;
-    // 行间距需容纳未开赛卡片上方的开赛时间角标（约 11px 高），14px 起才不显局促
-    const cardGap = 14;
+    // 行间距需完整容纳卡片上方的开赛时间/LIVE 角标（约 13px 高 + 留白），否则角标压住上一张卡
+    const cardGap = 20;
     const maxMatches = Math.max(1, ...rounds.map(round => round.matches.length));
     // 按精确间距计算：最多对阵数的轮次里相邻卡片的实际间隙 == cardGap
     const laneHeight = maxMatches * (cardHeight + cardGap);
