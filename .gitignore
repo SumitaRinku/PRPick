@@ -52,3 +52,7 @@ Desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# 本地工具元数据与机器人预览图
+.commandcode/
+bot/preview-*.png
