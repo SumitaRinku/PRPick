@@ -60,6 +60,7 @@ async function siteRequest(config, pathname, body) {
         ...(body ? { body: JSON.stringify(body) } : {})
     });
     if (!response.ok) {
+        await response.arrayBuffer().catch(() => {}); // Drain the body so the socket is released.
         const error = new Error(`群竞猜接口 HTTP ${response.status}`);
         error.status = response.status;
         throw error;

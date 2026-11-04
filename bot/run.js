@@ -1,15 +1,17 @@
-// Standalone Node.js 20+ worker: no npm install required on Windows.
+// Standalone Node.js 20+ worker (22+ for website-styled images): no npm install required on Windows.
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
+const { execFile } = require('node:child_process');
 const { setTimeout: sleep } = require('node:timers/promises');
-const { DAY, iso, bounds, freshness, splitMessage, splitMatchMessage, dailyReport, plan } = require('./core');
+const { DAY, iso, bounds, freshness, splitMessage, splitMatchMessage, dailyReport, roundJobs, plan } = require('./core');
+const { screenshotCard, screenshotBracket } = require('./browser');
 
 function readConfig(file) {
     const config = { games: ['cs2', 'valorant'], dailyTime: '12:00', dayStart: '06:00', earlyMinutes: 10,
-        reminderMinutes: 30, weeklyEnabled: true, weeklyTime: '20:00', resultsLimit: 12,
+        reminderMinutes: 30, slipMinutes: 180, remindAgainMinutes: 60, weeklyEnabled: true, weeklyTime: '20:00', resultsLimit: 12,
         freshnessMinutes: 20, pollSeconds: 60, lockPort: 39173, dryRun: true,
-        commandGroupIds: [], eventPort: 3002, eventSecret: '',
+        commandGroupIds: [], eventPort: 3002, eventSecret: '', imageReports: true, siteImages: true, roundImages: true, dailyBrackets: true, edgePath: '',
         ...JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) };
     for (const name of ['siteUrl', 'napcatUrl']) {
         const url = new URL(config[name]);
@@ -31,42 +33,99 @@ function readConfig(file) {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(config[name])) throw new Error(`${name} 应为 HH:mm`);
     }
     if (config.dayStart >= config.dailyTime) throw new Error('dayStart 必须早于 dailyTime');
-    for (const [name, min, max] of [['earlyMinutes', 0, 60], ['reminderMinutes', 0, 120], ['resultsLimit', 1, 100],
+    for (const [name, min, max] of [['earlyMinutes', 0, 60], ['reminderMinutes', 0, 120], ['slipMinutes', 0, 720], ['remindAgainMinutes', 10, 720], ['resultsLimit', 1, 100],
         ['freshnessMinutes', 5, 1440], ['pollSeconds', 15, 300], ['lockPort', 1024, 65535]]) {
         if (!Number.isInteger(config[name]) || config[name] < min || config[name] > max) throw new Error(`${name} 必须是 ${min}—${max} 的整数`);
     }
-    for (const name of ['dryRun', 'weeklyEnabled']) if (typeof config[name] !== 'boolean') throw new Error(`${name} 必须为 true 或 false`);
+    for (const name of ['dryRun', 'weeklyEnabled', 'imageReports', 'siteImages', 'roundImages', 'dailyBrackets']) if (typeof config[name] !== 'boolean') throw new Error(`${name} 必须为 true 或 false`);
     return config;
 }
 
 async function fetchFeed(config, now, ids = []) {
     const url = new URL(`${config.siteUrl}/api/bot/schedule`);
-    url.searchParams.set('from', iso(bounds(now, config).previous));
+    // Three days back (the server allows 10 days in total) so Swiss records and bracket context are complete.
+    url.searchParams.set('from', iso(Math.min(bounds(now, config).previous, now - 3 * DAY)));
     url.searchParams.set('to', iso(now + 7 * DAY));
     if (ids.length) url.searchParams.set('ids', ids.join(','));
     const response = await fetch(url, { headers: { Authorization: `Bearer ${config.feedToken}` },
         redirect: 'error', signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`网站赛程接口 HTTP ${response.status}（检查网站部署、令牌和同步状态）`);
+    if (!response.ok) {
+        await response.arrayBuffer().catch(() => {}); // Drain the body so the socket is released.
+        throw new Error(`网站赛程接口 HTTP ${response.status}（检查网站部署、令牌和同步状态）`);
+    }
     const feed = await response.json();
     if (feed.version !== 1 || !Array.isArray(feed.matches) || !Array.isArray(feed.sync) || !Array.isArray(feed.unavailable_ids)) throw new Error('网站赛程接口格式不匹配，请部署最新代码');
     if (Math.abs(Date.parse(feed.generated_at) - now) > 120000 || !Number.isFinite(Date.parse(feed.generated_at))) throw new Error('网站响应时间异常，请检查两台服务器时钟与缓存');
     return feed;
 }
 
-async function sendMessage(config, groupId, text) {
+// Draws a report card to PNG with the Windows-bundled PowerShell + System.Drawing (no npm packages).
+function renderCard(card, outFile) {
+    return new Promise((resolve, reject) => {
+        if (process.platform !== 'win32') return reject(new Error('图片版日报仅支持 Windows'));
+        fs.mkdirSync(path.dirname(outFile), { recursive: true });
+        const spec = `${outFile}.json`;
+        fs.writeFileSync(spec, JSON.stringify(card));
+        execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', path.join(__dirname, 'render-card.ps1'), '-SpecPath', spec, '-OutPath', outFile],
+        { windowsHide: true, timeout: 60000 }, (error, stdout, stderr) => {
+            fs.rmSync(spec, { force: true });
+            if (error) return reject(new Error(`图片生成失败：${String(stderr || error.message).trim().slice(0, 300)}`));
+            if (!fs.existsSync(outFile) || !fs.statSync(outFile).size) return reject(new Error('图片生成失败：未生成文件'));
+            resolve(outFile);
+        });
+    });
+}
+
+// Website screenshot (Edge) first; report cards fall back to the PowerShell drawing, then the caller sends text.
+async function renderImage(config, spec, outFile) {
+    const profile = path.join(path.dirname(path.dirname(outFile)), 'edge-profile');
+    const errors = [];
+    // Bracket first (when there is one), then the list card in site style, then the basic PowerShell card.
+    if (config.siteImages && spec.bracket) {
+        try { await screenshotBracket(config, profile, spec.bracket, outFile); return 'site'; }
+        catch (error) { errors.push(`赛程图截图失败：${error.message}`); }
+    }
+    if (config.siteImages && spec.card) {
+        try { await screenshotCard(config, profile, spec.card, outFile); return errors.length ? 'site list (fallback)' : 'site'; }
+        catch (error) { errors.push(`网站截图失败：${error.message}`); }
+    }
+    if (spec.card) {
+        try { await renderCard(spec.card, outFile); return errors.length ? 'basic (fallback)' : 'basic'; }
+        catch (error) { errors.push(error.message); }
+    }
+    throw new Error(errors.join('；') || '未启用图片');
+}
+
+// `image` is one path or a list of paths: one message carries the summary line and every image.
+async function sendMessage(config, groupId, text, image) {
+    const files = [image].flat().filter(Boolean);
+    let message = [{ type: 'text', data: { text } }];
+    if (files.length) {
+        message = [{ type: 'text', data: { text: `${text}\n` } }];
+        for (const file of files) {
+            let data;
+            try { data = fs.readFileSync(file).toString('base64'); }
+            catch { return { status: 'failed', error: '图片文件丢失' }; } // Nothing was sent; caller falls back to text.
+            message.push({ type: 'image', data: { file: `base64://${data}` } });
+        }
+    }
     let response;
     try {
         response = await fetch(`${config.napcatUrl}/send_group_msg`, {
-            method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000),
+            method: 'POST', redirect: 'error', signal: AbortSignal.timeout(files.length ? 30000 + 15000 * files.length : 15000),
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.napcatToken}` },
-            body: JSON.stringify({ group_id: groupId, message: [{ type: 'text', data: { text } }] })
+            body: JSON.stringify({ group_id: groupId, message })
         });
     } catch {
         return { status: 'unknown', error: 'NapCat 连接失败或超时，发送结果不确定；请核对群消息' };
     }
-    // Auth/route rejection is a known non-send. Other transport errors may be ambiguous.
-    if ([400, 401, 403, 404, 429].includes(response.status)) return { status: 'failed', error: `NapCat HTTP ${response.status}` };
-    if (!response.ok) return { status: 'unknown', error: `NapCat HTTP ${response.status}，发送结果不确定` };
+    if (!response.ok) {
+        await response.arrayBuffer().catch(() => {}); // Drain the body so the socket is released.
+        // Auth/route rejection is a known non-send. Other transport errors may be ambiguous.
+        if ([400, 401, 403, 404, 429].includes(response.status)) return { status: 'failed', error: `NapCat HTTP ${response.status}` };
+        return { status: 'unknown', error: `NapCat HTTP ${response.status}，发送结果不确定` };
+    }
     let data;
     try { data = await response.json(); } catch { return { status: 'unknown', error: 'NapCat 响应不是 JSON' }; }
     if (data.status === 'ok' && data.retcode === 0 && data.data?.message_id != null) {
@@ -77,29 +136,59 @@ async function sendMessage(config, groupId, text) {
 }
 
 function loadState(file) {
-    if (!fs.existsSync(file)) return { version: 1, jobs: {}, watched: {} };
+    if (!fs.existsSync(file)) return { version: 1, jobs: {}, watched: {}, rounds: {} };
     const state = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (state.version !== 1 || !state.jobs || !state.watched) throw new Error('发送记录损坏；请恢复备份，不要直接删除记录以免重复发送');
     for (const job of Object.values(state.jobs)) {
         for (const part of job.parts) if (part.status === 'sending') part.status = 'unknown';
     }
+    state.rounds ||= {};
     return state;
+}
+
+const RETRYABLE_RENAME = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+function sleepSync(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function saveState(file, state) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    const temp = `${file}.tmp`;
+    const temp = `${file}.${process.pid}.tmp`;
     const fd = fs.openSync(temp, 'w', 0o600);
     try { fs.writeFileSync(fd, JSON.stringify(state, null, 2)); fs.fsyncSync(fd); }
     finally { fs.closeSync(fd); }
-    fs.renameSync(temp, file);
+    // Windows antivirus and search indexers briefly lock freshly written files, which makes
+    // renaming over the target fail with EPERM/EBUSY. Retry instead of losing the whole save.
+    for (let attempt = 0; ; attempt++) {
+        try { fs.renameSync(temp, file); return; }
+        catch (error) {
+            if (!RETRYABLE_RENAME.has(error.code) || attempt >= 5) {
+                try { fs.unlinkSync(temp); } catch { /* keep the original error */ }
+                throw error;
+            }
+            sleepSync(40 * 2 ** attempt); // 40 + 80 + 160 + 320 + 640 ms
+        }
+    }
+}
+
+const textParts = job => splitMatchMessage(job.text, job.matchIds).map(part => ({ ...part, status: 'pending', attempts: 0 }));
+
+function pruneImages(dir, now) {
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch { return; }
+    for (const name of names) {
+        const target = path.join(dir, name);
+        try { if (fs.statSync(target).mtimeMs < now - 15 * DAY) fs.rmSync(target, { force: true }); } catch { /* best effort */ }
+    }
 }
 
 function pruneState(state, now) {
     for (const [key, job] of Object.entries(state.jobs)) if (job.expires < now - 14 * DAY) delete state.jobs[key];
     for (const watches of Object.values(state.watched)) {
-        for (const [id, m] of Object.entries(watches)) if (Date.parse(m.match_time) < now - 2 * DAY) delete watches[id];
+            for (const [id, m] of Object.entries(watches)) if (Date.parse(m.match_time) < now - 2 * DAY) delete watches[id];
     }
+    for (const [key, round] of Object.entries(state.rounds || {})) if (round.at < now - 30 * DAY) delete state.rounds[key];
 }
 
 async function tick(config, state, file, dependencies = {}) {
@@ -107,7 +196,11 @@ async function tick(config, state, file, dependencies = {}) {
     const getFeed = dependencies.fetchFeed || fetchFeed;
     const send = dependencies.sendMessage || sendMessage;
     const delay = dependencies.sleep || sleep;
+    const render = dependencies.renderImage || renderImage;
+    const dataDir = path.dirname(file);
     pruneState(state, now);
+    pruneImages(path.join(dataDir, 'images'), now);
+    const rendered = new Map(); // One PNG per report, shared by every group.
     const ids = [...new Set(Object.values(state.watched).flatMap(watches => Object.keys(watches)))];
     // Fetch extra tracked matches in bounded batches, keeping the full window each time.
     const feed = await getFeed(config, now, ids.slice(0, 500));
@@ -119,14 +212,41 @@ async function tick(config, state, file, dependencies = {}) {
     }
     const stale = freshness(feed, config, now);
     if (stale.length) throw new Error(`暂停发送：${stale.join(', ')} 同步超过 ${config.freshnessMinutes} 分钟未成功，或尚未完成升级后的首次同步`);
+    // Rounds are tracked once for all groups; the first tick after an upgrade only records what is already finished.
+    const rounds = config.roundImages ? roundJobs(feed, config, now, state.rounds ||= {}) : [];
     for (const group of config.groupIds) {
         const watched = state.watched[group] ||= {};
-        const candidates = plan(feed, { ...config, commandsEnabled: config.commandGroupIds?.includes(group) || false }, now, watched);
+        const candidates = [...plan(feed, { ...config, commandsEnabled: config.commandGroupIds?.includes(group) || false }, now, watched), ...rounds];
         const activeKeys = new Set(candidates.map(job => `${group}|${job.key}`));
         for (const candidate of candidates) {
             const key = `${group}|${candidate.key}`;
-            if (!state.jobs[key]) state.jobs[key] = { ...candidate, group, createdAt: now,
-                parts: splitMatchMessage(candidate.text, candidate.matchIds).map(part => ({ ...part, status: 'pending', attempts: 0 })) };
+            if (state.jobs[key]) continue;
+            const { card, bracket, images, summary, ...job } = candidate;
+            state.jobs[key] = { ...job, group, createdAt: now, parts: textParts(job) };
+            // Daily: one image per tournament (bracket, or its list card); weekly: one card; round: one bracket.
+            const specs = images || (card ? [{ card }] : bracket ? [{ bracket }] : []);
+            if (!specs.length || (!bracket && !config.imageReports)) continue;
+            // Freeze the images at creation so a retry resends exactly what was rendered.
+            const base = `images/${candidate.key.replace(/[^\w-]/g, '_')}`;
+            if (!rendered.has(base)) {
+                rendered.set(base, (async () => {
+                    const files = [];
+                    for (const [index, spec] of specs.entries()) {
+                        const file = specs.length > 1 ? `${base}-${index + 1}.png` : `${base}.png`;
+                        try {
+                            const method = await render(config, spec, path.join(dataDir, file));
+                            console.log(`[${new Date().toISOString()}] ${candidate.key}: 图片 ${index + 1}/${specs.length} 已生成（${method}）`);
+                            files.push(file);
+                        } catch (error) {
+                            console.error(`[${new Date().toISOString()}] ${candidate.key}: ${error.message}，改发文字版`);
+                            return null;
+                        }
+                    }
+                    return files;
+                })());
+            }
+            const files = await rendered.get(base);
+            if (files) state.jobs[key].parts = [{ text: summary, images: files, matchId: null, status: 'pending', attempts: 0 }];
         }
         saveState(file, state); // Freeze each report and all its parts before the first send.
         for (const [key, job] of Object.entries(state.jobs)) {
@@ -152,15 +272,23 @@ async function tick(config, state, file, dependencies = {}) {
                 }
                 part.status = 'sending'; part.attempts++;
                 saveState(file, state);
-                const outcome = await send(config, group, part.text);
+                const files = (part.images || (part.image ? [part.image] : [])).map(file => path.join(dataDir, file));
+                const outcome = await send(config, group, part.text, files.length > 1 ? files : files[0]);
                 Object.assign(part, outcome, { updatedAt: Date.now(), retryAt: now + 60000 * 2 ** part.attempts });
                 saveState(file, state);
                 console.log(`[${new Date().toISOString()}] ${key}: ${part.status}${part.error ? ` (${part.error})` : ''}`);
+                if ((part.image || part.images) && part.status === 'failed') {
+                    // A definite rejection means nothing reached the group, so the text version cannot duplicate it.
+                    job.parts = textParts(job);
+                    saveState(file, state);
+                    console.log(`[${new Date().toISOString()}] ${key}: 图片发送被拒，下一轮改发文字版`);
+                    break;
+                }
                 await delay(3000);
                 if (part.status !== 'sent') break;
             }
             if (job.parts.every(part => part.status === 'sent') && !job.recorded) {
-                for (const m of job.watched) watched[String(m.id)] = m;
+                for (const m of job.watched) watched[String(m.id)] = { ...watched[String(m.id)], ...m }; // keep reminded_time
                 job.recorded = true;
                 saveState(file, state);
             }
@@ -192,7 +320,17 @@ async function main() {
         const now = Date.now(), feed = await fetchFeed(config, now);
         const stale = freshness(feed, config, now);
         if (stale.length) console.log(`【仅预览】数据过期：${stale.join(', ')}；正式推送将暂停。`);
-        console.log(dailyReport(feed, config, now).text);
+        const report = dailyReport(feed, config, now);
+        console.log(report.text);
+        if (config.imageReports) {
+            const specs = report.images || [{ card: report.card }];
+            console.log(`\n群内文字：${report.summary}`);
+            for (const [index, spec] of specs.entries()) {
+                const out = path.join(path.dirname(file), 'data', specs.length > 1 ? `preview-daily-${index + 1}.png` : 'preview-daily.png');
+                try { const method = await renderImage(config, spec, out); console.log(`图片 ${index + 1}/${specs.length}（${method}）：${out}`); }
+                catch (error) { console.log(`图片 ${index + 1}/${specs.length}：${error.message}（正式推送将改发文字版）`); }
+            }
+        }
         console.log('\n仅预览，未向QQ群发送消息。确认后将 config.json 中 dryRun 改为 false。');
         return;
     }
@@ -236,4 +374,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = { readConfig, fetchFeed, sendMessage, loadState, saveState, tick };
+module.exports = { readConfig, fetchFeed, sendMessage, renderCard, renderImage, loadState, saveState, tick };

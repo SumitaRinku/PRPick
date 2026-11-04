@@ -25,12 +25,14 @@ function createBotRouter(db, getToken = () => process.env.BOT_FEED_TOKEN || '') 
             return res.status(400).json({ error: 'Invalid window (max 10 days) or ids (max 500)' });
         }
         const result = db.transaction(() => {
-            const rows = db.prepare(`SELECT m.id, m.tournament_id, m.match_time, m.time_confirmed,
+            const rows = db.prepare(`SELECT m.id, m.tournament_id, m.name, m.match_time, m.time_confirmed,
                 m.status, m.format, m.stage_name, m.betting_enabled, m.is_forfeit,
                 m.team1_id, m.team2_id, m.team1_score, m.team2_score, m.winner_team_id,
                 m.external_source, m.last_synced_at,
                 t.name tournament_name, t.short_name tournament_short_name, t.game_type,
-                a.name team1_name, b.name team2_name
+                a.name team1_name, b.name team2_name,
+                a.logo_url team1_logo_url, a.dark_logo_url team1_dark_logo_url,
+                b.logo_url team2_logo_url, b.dark_logo_url team2_dark_logo_url
                 FROM matches m JOIN tournaments t ON t.id = m.tournament_id
                 JOIN teams a ON a.id = m.team1_id JOIN teams b ON b.id = m.team2_id
                 WHERE t.is_active = 1 AND (

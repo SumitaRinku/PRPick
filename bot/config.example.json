@@ -12,11 +12,18 @@
   "dayStart": "06:00",
   "earlyMinutes": 10,
   "reminderMinutes": 30,
+  "slipMinutes": 180,
+  "remindAgainMinutes": 60,
   "weeklyEnabled": true,
   "weeklyTime": "20:00",
   "resultsLimit": 12,
   "freshnessMinutes": 20,
   "pollSeconds": 60,
   "lockPort": 39173,
+  "imageReports": true,
+  "siteImages": true,
+  "roundImages": true,
+  "dailyBrackets": true,
+  "edgePath": "",
   "dryRun": true
 }

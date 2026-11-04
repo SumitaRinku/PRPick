@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const express = require('express');
 const Database = require('better-sqlite3');
-const { dailyDue, dailyReport, freshness, plan, midnight, splitMessage, messageMatchId, splitMatchMessage } = require('../bot/core');
+const { dailyDue, dailyReport, freshness, plan, midnight, splitMessage, messageMatchId, splitMatchMessage, roundOf, roundJobs, roundName, stakesIndex } = require('../bot/core');
 const { tick, loadState, saveState, sendMessage } = require('../bot/run');
 const { createBotRouter } = require('../server/routes/bot');
 const { ensureBotSchema } = require('../server/config/bot-schema');
@@ -100,7 +100,7 @@ test('daily, weekly and schedule updates omit URLs and identify visible matches 
     const report = dailyReport(feed([m]), config, now);
     assert.equal(messageMatchId(report.text, report.matchIds), 123);
     assert.doesNotMatch(report.text, /https?:\/\//);
-    const changed = plan(feed([{ ...m, match_time: '2026-09-22T13:00:00+08:00' }]), config, now, { 123: m }).find(job => job.kind === 'change');
+    const changed = plan(feed([{ ...m, match_time: '2026-09-23T13:00:00+08:00' }]), config, now, { 123: m }).find(job => job.kind === 'change');
     assert.equal(messageMatchId(changed.text, changed.matchIds), 123);
     assert.doesNotMatch(changed.text, /https?:\/\//);
     const sunday = stamp('2026-09-27T20:00:00+08:00');
@@ -164,6 +164,136 @@ test('reschedule and disappearance generate explicit corrections for notified ma
     assert.match(plan(removed, config, now, { 1: old }).find(job => job.kind === 'change').text, /下架/);
 });
 
+test('overrunning earlier series: slips stay silent, one reminder carries the latest and original time', () => {
+    const kinds = (jobs, kind) => jobs.filter(job => job.kind === kind);
+    const announced = match(7, '2026-09-22T12:30:00+08:00'); // listed in the 12:00 daily
+    const at = (time, start, watched) => plan(feed([match(7, start)], stamp(time)), config, stamp(time), watched);
+    // 12:30 → 12:40 before any reminder: no 【赛程更新】, the reminder shows the new time and the old one.
+    let jobs = at('2026-09-22T12:15:00+08:00', '2026-09-22T12:40:00+08:00', { 7: announced });
+    assert.equal(kinds(jobs, 'change').length, 0);
+    const [reminder] = kinds(jobs, 'reminder');
+    assert.match(reminder.text, /已顺延】/);
+    assert.match(reminder.text, /^#7 Alpha vs Beta · BO3 · 09\/22 12:40（原定 09\/22 12:30）$/m);
+    assert.equal(messageMatchId(reminder.text, reminder.matchIds), 7);
+    const reminded = { 7: { ...announced, ...reminder.watched[0] } };
+    // 12:40 → 13:00 after the reminder: nothing at all.
+    jobs = at('2026-09-22T12:35:00+08:00', '2026-09-22T13:00:00+08:00', reminded);
+    assert.equal(jobs.filter(job => job.kind !== 'daily').length, 0);
+    // 12:40 → 13:40 (60 min past the reminded time): exactly one fresh reminder, still no change message.
+    jobs = at('2026-09-22T13:15:00+08:00', '2026-09-22T13:40:00+08:00', reminded);
+    assert.equal(kinds(jobs, 'change').length, 0);
+    assert.equal(kinds(jobs, 'reminder').length, 1);
+    // Beyond the slip window, earlier starts and new opponents are still announced as changes.
+    for (const moved of [match(7, '2026-09-22T16:00:00+08:00'), match(7, '2026-09-22T12:00:00+08:00'),
+        match(7, '2026-09-22T12:40:00+08:00', { team2_name: 'Gamma' })]) {
+        assert.equal(kinds(plan(feed([moved], stamp('2026-09-22T11:00:00+08:00')), config, stamp('2026-09-22T11:00:00+08:00'), { 7: announced }), 'change').length, 1);
+    }
+    // With reminders off there is nothing to fold a slip into, so it is announced.
+    assert.equal(kinds(plan(feed([match(7, '2026-09-22T12:40:00+08:00')]), { ...config, reminderMinutes: 0 }, now, { 7: announced }), 'change').length, 1);
+});
+
+test('results say who advanced, dropped to the lower bracket or was eliminated', () => {
+    assert.equal(roundName('Upper bracket semifinal'), '胜者组半决赛');
+    assert.equal(roundName('Lower bracket round 1'), '败者组第1轮');
+    assert.equal(roundName('Grand final'), '总决赛');
+    const base = { game_type: 'cs2', tournament_id: 9, status: 'finished', match_time: '2026-11-02T04:00:00Z' };
+    const m = (id, stage, name, t1, t2, s1, s2, extra = {}) => ({ ...base, id, stage_name: stage, name: `${name}: X vs Y`,
+        team1_id: t1, team2_id: t2, team1_name: 'T' + t1, team2_name: 'T' + t2, team1_score: s1, team2_score: s2, ...extra });
+    const swiss = [
+        m(1, 'Swiss', 'Round 1', 1, 2, 2, 0), m(2, 'Swiss', 'Round 1', 3, 4, 2, 1),
+        m(3, 'Swiss', 'Round 2', 1, 3, 2, 1), m(4, 'Swiss', 'Round 2', 2, 4, 0, 2),
+        m(5, 'Swiss', 'Round 3', 1, 5, 2, 0, { team2_id: 9 }),
+        m(6, 'Swiss', 'Round 3', 3, 4, null, null, { status: 'upcoming' })
+    ];
+    const playoff = [m(10, 'Playoffs', 'Upper bracket semifinal 1', 1, 3, 2, 1), m(11, 'Playoffs', 'Lower bracket final', 2, 4, 0, 2),
+        m(12, 'Playoffs', 'Grand final', 1, 4, 3, 2)];
+    const index = stakesIndex([...swiss.filter(x => x.id !== 5), ...playoff]);
+    assert.deepEqual([index.get(10).label, index.get(10).win, index.get(10).lose], ['胜者组半决赛', '晋级', '落败者组']);
+    assert.deepEqual([index.get(11).win, index.get(11).lose], ['晋级', '淘汰']);
+    assert.deepEqual([index.get(12).win, index.get(12).lose], ['夺冠', '亚军']);
+    assert.deepEqual([index.get(4).label, index.get(4).win, index.get(4).lose], ['瑞士轮第2轮', '1-1', '0-2']);
+    assert.equal(index.get(6).pool, '1-1组');
+    // Team 9 never played rounds 1-2, so round 3 pairs unequal records: the stage is not treated as Swiss.
+    assert.equal(stakesIndex(swiss).get(1).win, undefined);
+    // Eight teams: 2-0 vs 2-0 and 0-2 vs 0-2 in round 3 decide advance / elimination.
+    const r = (id, n, t1, t2) => m(id, 'S2', `Round ${n}`, t1, t2, 2, 0);
+    const eight = stakesIndex([r(21, 1, 1, 2), r(22, 1, 3, 4), r(23, 1, 5, 6), r(24, 1, 7, 8), r(25, 2, 1, 3), r(26, 2, 5, 7),
+        r(27, 2, 2, 4), r(28, 2, 6, 8), r(29, 3, 1, 5), r(30, 3, 4, 8)]);
+    assert.deepEqual([eight.get(29).win, eight.get(29).winTone, eight.get(30).lose, eight.get(30).tone], ['3-0 晋级', 'up', '0-3 淘汰', 'out']);
+    // Daily text and image rows carry the tags.
+    const at = Date.parse('2026-11-03T12:00:00+08:00');
+    const report = dailyReport(feed([...swiss.slice(0, 4), ...playoff].map(x => ({ ...x, tournament_name: 'Cup', time_confirmed: 1, format: 'BO3' })), at),
+        config, at);
+    assert.match(report.text, /#10 T1 2:1 T3 · 胜者组半决赛 · T3 落败者组/);
+    assert.match(report.text, /#4 T2 0:2 T4 · 瑞士轮第2轮 · T2 0-2 \/ T4 1-1/);
+    // Image: one per tournament; Swiss stage and playoffs share it. The list fallback names each round once, no tags.
+    assert.equal(report.images.length, 1);
+    const [{ bracket, card }] = report.images;
+    assert.deepEqual(bracket.yesterday.sort((a, b) => a - b), [1, 2, 3, 4, 10, 11, 12]);
+    assert.equal(card.theme, 'cs2');
+    assert.deepEqual(card.items.filter(item => item.t === 'group').map(item => item.text),
+        ['Swiss 瑞士轮第1轮', 'Swiss 瑞士轮第2轮', 'Playoffs 胜者组半决赛', 'Playoffs 败者组决赛', 'Playoffs 总决赛']);
+    assert.ok(card.items.filter(item => item.t === 'row').every(row => !row.atag && !row.btag));
+});
+
+test('round names normalise to one round per stage', () => {
+    const key = (name, stage = 'Playoffs') => roundOf(match(1, '2026-09-22T12:00:00+08:00', { name, stage_name: stage }));
+    assert.equal(key('Upper bracket quarterfinal 1: A vs B').key, key('Upper bracket quarterfinal 4: C vs D').key);
+    assert.equal(key('Lower bracket round 1 match 1: A vs B').key, key('Lower bracket round 1 match 2: C vs D').key);
+    assert.notEqual(key('Round 1: A vs B', 'Group Stage').key, key('Round 2: A vs B', 'Group Stage').key);
+    assert.notEqual(key('Round 1: A vs B', 'Stage 1 Swiss').key, key('Round 1: A vs B', 'Stage 2 Swiss').key);
+    assert.equal(key('Upper bracket quarterfinal 2: A vs B').label, 'Playoffs · Upper bracket quarterfinal');
+    assert.equal(key('Round 2: A vs B', 'Round 2').label, 'Round 2');
+    assert.equal(key('EACE vs MASQ', 'Regular Season').round, '');
+});
+
+test('finished rounds are posted once on the observed transition, bundled per stage', () => {
+    const qf = (id, status, extra = {}) => match(id, `2026-09-22T1${id}:00:00+08:00`, { name: `Upper bracket quarterfinal ${id}: A vs B`, stage_name: 'Playoffs',
+        status, ...(status === 'finished' ? { team1_score: 2, team2_score: 1 } : {}), ...extra });
+    const lb = (status) => match(9, '2026-09-22T15:00:00+08:00', { name: 'Lower bracket round 1 match 1: C vs D', stage_name: 'Playoffs',
+        status, ...(status === 'finished' ? { team1_score: 0, team2_score: 2 } : {}) });
+    const league = status => match(20, '2026-09-22T14:00:00+08:00', { name: 'EACE vs MASQ', stage_name: 'Regular Season', status, team1_score: 1, team2_score: 0 });
+    const at = stamp('2026-09-22T18:00:00+08:00');
+    const seen = {};
+    // Already finished when first seen (fresh install / upgrade): recorded, not posted.
+    assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'finished')]), config, at, seen).length, 0);
+    const fresh = {};
+    assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'upcoming'), lb('ongoing'), league('upcoming')]), config, at, fresh).length, 0);
+    const jobs = roundJobs(feed([qf(1, 'finished'), qf(2, 'finished'), lb('finished'), league('finished')]), config, at, fresh);
+    assert.equal(jobs.length, 1, 'UB QF and LB R1 of one stage share one image; leagues are never tracked');
+    assert.match(jobs[0].summary, /Playoffs · Upper bracket quarterfinal、Playoffs · Lower bracket round 1 已全部结束/);
+    assert.deepEqual(jobs[0].bracket.matchIds.sort(), [1, 2, 9]);
+    assert.match(jobs[0].text, /#1 Alpha 2:1 Beta/);
+    assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'finished'), lb('finished')]), config, at, fresh).length, 0, 'no repeat');
+    // Too old to be news (worker was offline for a day): recorded silently.
+    const late = {};
+    roundJobs(feed([qf(1, 'finished'), qf(2, 'upcoming')]), config, at, late);
+    assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'finished')]), config, at + 2 * 86400000, late).length, 0);
+});
+
+test('worker posts a finished round to every group with one shared bracket image', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prbet-round-'));
+    const file = path.join(dir, 'state.json');
+    const at = stamp('2026-09-22T18:00:00+08:00');
+    const round = status => [1, 2].map(id => match(id, `2026-09-22T1${id + 4}:00:00+08:00`, { name: `Semifinal ${id}: A vs B`, stage_name: 'Playoffs',
+        status, ...(status === 'finished' ? { team1_score: 2, team2_score: 0 } : {}) }));
+    const cfg = { ...config, groupIds: ['123456', '123457'], reminderMinutes: 0, weeklyEnabled: false, dailyTime: '23:00', roundImages: true };
+    try {
+        const specs = [], sent = [];
+        const deps = { now: at, sleep: async () => {},
+            renderImage: async (c, spec, out) => { specs.push(spec); fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, 'png'); return 'site'; },
+            sendMessage: async (c, group, text, image) => { sent.push({ group, text, image }); return { status: 'sent', messageId: String(sent.length) }; } };
+        await tick(cfg, loadState(file), file, { ...deps, fetchFeed: async () => feed(round('upcoming'), at) });
+        assert.equal(sent.length, 0);
+        await tick(cfg, loadState(file), file, { ...deps, fetchFeed: async () => feed(round('finished'), at) });
+        await tick(cfg, loadState(file), file, { ...deps, fetchFeed: async () => feed(round('finished'), at) });
+        assert.equal(specs.length, 1);
+        assert.equal(specs[0].bracket.tournamentId, 1);
+        assert.deepEqual(sent.map(item => item.group), ['123456', '123457']);
+        assert.ok(sent.every(item => item.image && /^【轮次结束 · CS2 · Test Cup】Playoffs · Semifinal 已全部结束/.test(item.text)));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('message splitting bounds text and labels all parts', () => {
     const parts = splitMessage(('测试赛程\n').repeat(1000));
     assert.ok(parts.length > 1);
@@ -188,6 +318,52 @@ test('worker persists daily across restart and will not repeat it at noon after 
     } finally { fs.rmSync(dir, { recursive: true }); }
 });
 
+test('image reports: one render shared by groups, summary + image in one message, text fallback on failure', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prbet-image-'));
+    const file = path.join(dir, 'state.json');
+    // Tournament 1 has no named rounds (list card); tournament 2 is a bracket (bracket image, list card as its fallback).
+    const matches = [match(1, '2026-09-22T18:00:00+08:00'),
+        match(2, '2026-09-22T20:00:00+08:00', { tournament_id: 2, tournament_name: 'Major', game_type: 'valorant', stage_name: 'Playoffs', name: 'Upper bracket final: A vs B' })];
+    const cfg = { ...config, groupIds: ['123456', '123457'], reminderMinutes: 0, imageReports: true };
+    try {
+        const specs = [];
+        const sent = [];
+        const renderImage = async (c, spec, out) => { specs.push(spec); fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, 'png'); };
+        const deps = { now, fetchFeed: async () => feed(matches), renderImage, sleep: async () => {},
+            sendMessage: async (c, group, text, image) => { sent.push({ group, text, image }); return { status: 'sent', messageId: String(sent.length) }; } };
+        await tick(cfg, loadState(file), file, deps);
+        await tick(cfg, loadState(file), file, deps);
+        // One image per tournament, rendered once and shared by both groups.
+        assert.equal(specs.length, 2);
+        assert.deepEqual([specs[0].card.title, specs[0].card.theme, specs[0].bracket], ['Test Cup', 'cs2', undefined]);
+        assert.deepEqual([specs[1].card.title, specs[1].bracket.theme, specs[1].bracket.today, specs[1].bracket.yesterday],
+            ['Major', 'valorant', [2], []]);
+        assert.equal(sent.length, 2);
+        for (const item of sent) {
+            assert.match(item.text, /^【赛事日报 · 2026-09-22】.*今日 2 场比赛/);
+            assert.equal(item.image.length, 2);
+            assert.ok(item.image.every(image => fs.existsSync(image)));
+        }
+        // Rendering unavailable (e.g. not Windows): the ordinary text report goes out instead.
+        fs.rmSync(dir, { recursive: true }); fs.mkdirSync(dir);
+        sent.length = 0;
+        await tick(cfg, loadState(file), file, { ...deps, renderImage: async () => { throw new Error('no powershell'); } });
+        assert.equal(sent.length, 2);
+        assert.ok(sent.every(item => !item.image && item.text.includes('今日赛程')));
+        // NapCat definitely rejects the image: that tick sends nothing more, the next sends the text version once.
+        fs.rmSync(dir, { recursive: true }); fs.mkdirSync(dir);
+        sent.length = 0;
+        const rejecting = { ...deps, groupIds: undefined, sendMessage: async (c, group, text, image) => {
+            sent.push({ group, text, image }); return image ? { status: 'failed', error: 'NapCat HTTP 400' } : { status: 'sent', messageId: 'x' }; } };
+        const single = { ...cfg, groupIds: ['123456'] };
+        await tick(single, loadState(file), file, rejecting);
+        await tick(single, loadState(file), file, rejecting);
+        await tick(single, loadState(file), file, rejecting);
+        assert.deepEqual(sent.map(item => Boolean(item.image)), [true, false]);
+        assert.match(sent[1].text, /今日赛程/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('unknown delivery and crash during sending never retry automatically', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prbet-bot-'));
     const file = path.join(dir, 'state.json');
@@ -203,6 +379,26 @@ test('unknown delivery and crash during sending never retry automatically', asyn
         saveState(file, state);
         assert.equal(Object.values(loadState(file).jobs)[0].parts[0].status, 'unknown');
     } finally { fs.rmSync(dir, { recursive: true }); }
+});
+
+test('state save retries transient Windows rename locks', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prbet-rename-'));
+    const file = path.join(dir, 'state.json');
+    const original = fs.renameSync;
+    let calls = 0;
+    try {
+        saveState(file, { version: 1, jobs: {}, watched: {} });
+        fs.renameSync = (from, to) => {
+            calls++;
+            if (calls <= 2) { const error = new Error('EPERM: operation not permitted'); error.code = 'EPERM'; throw error; }
+            return original(from, to);
+        };
+        saveState(file, { version: 1, jobs: { job: { parts: [] } }, watched: {} });
+    } finally { fs.renameSync = original; }
+    assert.equal(calls, 3);
+    assert.deepEqual(Object.keys(loadState(file).jobs), ['job']);
+    assert.deepEqual(fs.readdirSync(dir), ['state.json']);
+    fs.rmSync(dir, { recursive: true });
 });
 
 test('stale feed never sends an empty-day claim', async () => {
@@ -240,13 +436,13 @@ test('OneBot send uses text segments and verifies retcode and message_id', async
 
 test('bot API authenticates, returns over 200 fixtures, filters disabled and returns watched IDs outside window', async () => {
     const db = new Database(':memory:');
-    db.exec(`CREATE TABLE matches(id INTEGER PRIMARY KEY, tournament_id INTEGER, match_time TEXT, status TEXT,
+    db.exec(`CREATE TABLE matches(id INTEGER PRIMARY KEY, tournament_id INTEGER, name TEXT, match_time TEXT, status TEXT,
         format TEXT, stage_name TEXT, betting_enabled INTEGER, is_forfeit INTEGER, team1_id INTEGER,
         team2_id INTEGER, team1_score INTEGER, team2_score INTEGER, winner_team_id INTEGER, external_source TEXT, last_synced_at TEXT);
         CREATE TABLE tournaments(id INTEGER PRIMARY KEY, name TEXT, short_name TEXT, game_type TEXT, is_active INTEGER);
-        CREATE TABLE teams(id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE teams(id INTEGER PRIMARY KEY, name TEXT, logo_url TEXT, dark_logo_url TEXT);
         INSERT INTO tournaments VALUES(1, 'Cup', NULL, 'cs2', 1), (2, 'Disabled', NULL, 'cs2', 0);
-        INSERT INTO teams VALUES(1, 'Alpha'), (2, 'Beta');`);
+        INSERT INTO teams VALUES(1, 'Alpha', 'https://cdn.test/a.png', NULL), (2, 'Beta', NULL, NULL);`);
     ensureBotSchema(db); ensureBotSchema(db);
     const insert = db.prepare(`INSERT INTO matches(id,tournament_id,match_time,team1_id,team2_id,status) VALUES(?,?,?,1,2,'upcoming')`);
     for (let id = 1; id <= 250; id++) insert.run(id, 1, '2026-09-22T18:00:00Z');
@@ -265,6 +461,8 @@ test('bot API authenticates, returns over 200 fixtures, filters disabled and ret
             assert.equal(data.matches.length, 251);
             assert.deepEqual(data.unavailable_ids, ['251', '999']);
             assert.ok(data.matches.some(m => m.id === 252));
+            assert.equal(data.matches[0].team1_logo_url, 'https://cdn.test/a.png');
+            assert.ok(Object.hasOwn(data.matches[0], 'name'));
             assert.equal((await fetch(`${base}/api/bot/schedule?from=bad&to=bad`, { headers })).status, 400);
             token = ''; assert.equal((await fetch(url, { headers })).status, 503);
         });
