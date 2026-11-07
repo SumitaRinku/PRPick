@@ -95,7 +95,7 @@ function renderUser() {
         if (toggle) userPanelEl.appendChild(toggle);
         return;
     }
-    userPanelEl.innerHTML = `<span>${escapeHtml(state.user.username)} · ${escapeHtml(state.user.role)} · ${state.user.total_score || 0}分</span><button onclick="logout()">退出</button>${state.user.role === 'admin' ? '<a class="button" href="/admin/">管理后台</a>' : ''}`;
+    userPanelEl.innerHTML = `<span><b>${escapeHtml(state.user.username)}</b><small class="user-role">${escapeHtml(state.user.role)}</small>${state.user.total_score || 0} 分</span><button onclick="logout()">退出</button>${state.user.role === 'admin' ? '<a class="button" href="/admin/">管理后台</a>' : ''}`;
     if (toggle) userPanelEl.appendChild(toggle);
 }
 
@@ -251,6 +251,23 @@ function consensusHtml(match) {
     </div>`;
 }
 
+// 进行中：系列赛实时比分 + 当前地图回合比分（无 GRID 数据时保持 VS）
+function liveCenterHtml(match) {
+    const live = match.live;
+    if (!live?.started || live.team1_score == null || live.team2_score == null) return '<div class="match-vs">VS</div>';
+    const current = (live.games || []).find(game => game.status === 'ongoing');
+    const currentHtml = current
+        ? `<span class="live-map" title="当前地图">${escapeHtml(mapLabel(current.map))} ${current.team1_rounds ?? 0}-${current.team2_rounds ?? 0}</span>`
+        : '';
+    return `<div class="match-score live-score" title="实时比分（GRID）"><span>${live.team1_score}</span><em>:</em><span>${live.team2_score}</span></div>${currentHtml}`;
+}
+
+// 进行中卡片：当前地图已在比分下方的红色标签里，下方比分条只列已打完的地图，避免重复
+function finishedMapsOnly(match) {
+    if (!match.live) return match;
+    return { ...match, live: { ...match.live, games: (match.live.games || []).filter(game => game.status === 'finished') } };
+}
+
 function matchCard(match) {
     const prediction = match.user_prediction;
     const canPredict = state.user && match.status === 'upcoming' && match.betting_enabled && new Date(match.match_time) > new Date();
@@ -266,40 +283,56 @@ function matchCard(match) {
     const stageLabel = rawStageLabel.replace(/:\s*[^:]+\s+vs\s+[^:]+$/i, '').trim() || match.stage_name || '常规赛';
     const team1Winner = isFinished && match.team1_score > match.team2_score;
     const team2Winner = isFinished && match.team2_score > match.team1_score;
+
+    // 底栏左侧：单图比分（已结束全部地图；进行中只列已打完的，当前地图已在比分下方）
+    // 没有地图数据时放「我的预测」。可预测时选中的比分已高亮在下方选择器里，不再重复。
+    const maps = isFinished ? mapStripHtml(match) : displayStatus === 'ongoing' ? mapStripHtml(finishedMapsOnly(match)) : '';
     const predictionClass = prediction ? (match.is_forfeit ? 'forfeit' : prediction.points_earned > 0 ? 'correct' : prediction.points_earned === 0 ? 'wrong' : 'pending') : '';
-    const cancelHtml = canCancel ? `<button class="link-btn danger" onclick="event.stopPropagation(); cancelPrediction(${match.id})">取消预测</button>` : '';
+    const result = !prediction ? '' : match.is_forfeit ? '不计分' : prediction.points_earned !== null ? `+${prediction.points_earned}` : '待结算';
+    const myPick = prediction && !canPredict
+        ? `<span class="my-pick ${predictionClass}" title="我的预测">我的 ${prediction.predicted_team1_score}:${prediction.predicted_team2_score}<b>${result}</b></span>`
+        : '';
+    const showCount = !(match.consensus && match.consensus.total >= 3 && !isFinished); // 共识条已显示人数
+    const actions = [
+        showCount ? `<span class="pick-count">${match.prediction_count || 0} 预测</span>` : '',
+        prediction ? `<button class="link-btn share-trigger" onclick="event.stopPropagation(); sharePrediction(${match.id})" title="生成分享图">分享</button>` : '',
+        canCancel ? `<button class="link-btn danger" onclick="event.stopPropagation(); cancelPrediction(${match.id})">取消预测</button>` : '',
+        isAdminStale ? `<button class="link-btn danger admin-forfeit-trigger" onclick="event.stopPropagation(); showForfeitEditor(${match.id})" title="开赛超过5小时仍未结算，可标记为弃权">标记弃权</button>` : '',
+        `<button class="link-btn md-trigger" onclick="event.stopPropagation(); openMatchDetail(${match.id})" title="地图 / 预测 / 交锋">详情 ›</button>`
+    ].join('');
     const predictionFormHtml = canPredict
-        ? `<div class="prediction-form" onclick="event.stopPropagation()"><label>选择比分</label><div class="score-picks">${scoreButtons(match, prediction)}</div>${cancelHtml}</div>`
-        : (canCancel ? `<div class="prediction-form" onclick="event.stopPropagation()">${cancelHtml}</div>` : '');
+        ? `<div class="prediction-form" onclick="event.stopPropagation()"><div class="score-picks">${scoreButtons(match, prediction)}</div></div>`
+        : '';
     return `
-        <article id="home-match-${match.id}" class="match-card ${cardClass} ${match.game_type || ''} ${isFinished ? 'clickable' : ''}" ${isFinished ? `onclick="showMatchPredictions(${match.id})"` : ''}>
+        <article id="home-match-${match.id}" class="match-card ${cardClass} ${match.game_type || ''} ${isFinished ? 'clickable' : ''}" ${isFinished ? `onclick="openMatchDetail(${match.id})"` : ''}>
             <div class="match-header">
                 <div class="match-tournament">
-                    <span class="game-pill ${match.game_type || ''}">${gameName(match.game_type)}</span>
-                    <span class="match-format">${escapeHtml(match.format)}</span>
-                    <span class="tournament-name" title="${escapeHtml(match.tournament_name || '')}">${tournamentLogo(match.tournament_name, match.game_type, match.tournament_logo_url)}${escapeHtml(match.tournament_name || '')}</span>
+                    <div class="match-tournament-line">
+                        <span class="game-pill ${match.game_type || ''}">${gameName(match.game_type)}</span>
+                        <span class="match-format">${escapeHtml(match.format)}</span>
+                        <span class="tournament-name" title="${escapeHtml(match.tournament_name || '')}">${tournamentLogo(match.tournament_name, match.game_type, match.tournament_logo_url)}${escapeHtml(match.tournament_name || '')}</span>
+                    </div>
+                    <div class="match-sub" title="${escapeHtml(rawStageLabel)}"><span>${escapeHtml(stageLabel)}</span><span>${info.exact}</span></div>
                 </div>
                 <span class="match-status ${stateInfo.className}"${displayStatus === 'upcoming' ? ` data-countdown="${match.match_time}"` : ''}>${displayStatus === 'upcoming' ? countdownText(match.match_time) : stateInfo.label}</span>
-            </div>
-            <div class="match-stage">
-                <strong>${escapeHtml(stageLabel)}</strong>
-                <span>${info.exact}</span>
             </div>
             <div class="match-teams">
                 <a class="team team-left team-link ${team1Winner ? 'winner' : ''}" href="/teams.html?team=${match.team1_id}" onclick="event.stopPropagation()">
                     ${logo(match.team1_logo_url, match.team1_dark_logo_url)}
                     <div><strong>${escapeHtml(match.team1_short_name || match.team1_name)}</strong><small>${escapeHtml(match.team1_name)}</small></div>
                 </a>
-                <div class="match-center">${isFinished ? `<div class="match-score"><span class="${team1Winner ? 'winner' : ''}">${match.team1_score}</span><em>:</em><span class="${team2Winner ? 'winner' : ''}">${match.team2_score}</span></div>` : '<div class="match-vs">VS</div>'}</div>
+                <div class="match-center">${isFinished ? `<div class="match-score"><span class="${team1Winner ? 'winner' : ''}">${match.team1_score}</span><em>:</em><span class="${team2Winner ? 'winner' : ''}">${match.team2_score}</span></div>` : displayStatus === 'ongoing' ? liveCenterHtml(match) : '<div class="match-vs">VS</div>'}</div>
                 <a class="team team-right team-link ${team2Winner ? 'winner' : ''}" href="/teams.html?team=${match.team2_id}" onclick="event.stopPropagation()">
                     ${logo(match.team2_logo_url, match.team2_dark_logo_url)}
                     <div><strong>${escapeHtml(match.team2_short_name || match.team2_name)}</strong><small>${escapeHtml(match.team2_name)}</small></div>
                 </a>
             </div>
             ${consensusHtml(match)}
-            <div class="match-footer"><span>${match.prediction_count || 0} 人预测</span>${isFinished ? `<button class="link-btn" onclick="event.stopPropagation(); showMatchPredictions(${match.id})">查看预测详情</button>` : ''}<button class="link-btn h2h-trigger" onclick="event.stopPropagation(); showMatchHead2Head(${match.id})">对阵历史</button>${isAdminStale ? `<button class="link-btn danger admin-forfeit-trigger" onclick="event.stopPropagation(); showForfeitEditor(${match.id})" title="开赛超过5小时仍未结算，可标记为弃权">标记弃权</button>` : ''}</div>
-            ${prediction ? `<div class="user-prediction ${predictionClass}"><strong>我的预测</strong><span>${prediction.predicted_team1_score} : ${prediction.predicted_team2_score}</span>${match.is_forfeit ? '<b>弃权不计分</b>' : prediction.points_earned !== null ? `<b>+${prediction.points_earned} 分</b>` : '<b>待结算</b>'}<button class="link-btn share-trigger" onclick="event.stopPropagation(); sharePrediction(${match.id})" title="生成分享图">分享</button></div>` : ''}
             ${predictionFormHtml}
+            <div class="card-bar">
+                <div class="card-bar-main">${maps}${myPick}</div>
+                <div class="card-bar-actions">${actions}</div>
+            </div>
         </article>`;
 }
 
@@ -396,9 +429,9 @@ function renderMatchResults(opts = {}) {
     if (animate) matchesEl.classList.add('anim-in');
     else matchesEl.classList.remove('anim-in');
     const selectedTournament = state.tournaments.find(tournament => String(tournament.id) === String(state.tournament));
-    const titleParts = [selectedTournament?.name || '全部赛事', statusLabel(state.status)];
-    if (matchResultsTitleEl) matchResultsTitleEl.textContent = titleParts.join(' · ');
-    if (matchResultsMetaEl) matchResultsMetaEl.textContent = `${state.matches.length} 场 · ${gameName(state.game)}`;
+    const status = statusLabel(state.status);
+    if (matchResultsTitleEl) matchResultsTitleEl.textContent = `${selectedTournament?.name || '全部赛事'}${status ? `（${status}）` : ''}`;
+    if (matchResultsMetaEl) matchResultsMetaEl.textContent = `${gameName(state.game)}共 ${state.matches.length} 场`;
     if (clearMatchFiltersEl) clearMatchFiltersEl.hidden = !state.status && !state.tournament;
     matchesEl.classList.toggle('grouped', !state.tournament);
     if (!state.matches.length) {
@@ -610,6 +643,7 @@ function clearMatchFilters() {
 }
 
 function closeDetailModal() {
+    stopMatchDetail();
     if (detailModalEl) detailModalEl.hidden = true;
     if (detailModalBodyEl) detailModalBodyEl.innerHTML = '';
     document.body.classList.remove('modal-open');
@@ -727,3 +761,17 @@ renderGameSwitch();
 bindGameSwitch();
 loadAll().catch(error => alert(error.message));
 startCountdownTicker();
+startLiveRefresh();
+
+// 有进行中的比赛时每 30 秒静默刷新列表，让实时比分 / 单图比分跟上；
+// 页面在后台时不刷新，切回前台立即补一次。
+function startLiveRefresh() {
+    if (window.__liveRefresh) return;
+    const hasLive = () => state.matches.some(match => match.display_status === 'ongoing');
+    const refresh = () => {
+        if (document.visibilityState !== 'visible' || !hasLive()) return;
+        loadMatches({ animate: false }).catch(() => {});
+    };
+    window.__liveRefresh = setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+}

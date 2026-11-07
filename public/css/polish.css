@@ -162,7 +162,7 @@ html[data-theme=dark] .match-status.match-open,html[data-theme=dark] .match-stat
 
 /* ---------- 页脚 ---------- */
 .site-footer{margin-top:28px;padding:18px 14px 20px;background:linear-gradient(180deg,#202b38,#1a2430);border-top:3px solid var(--accent-line);text-align:center}
-.site-footer::before{content:"PRBET · CS2 / Valorant 赛事竞猜";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
+.site-footer::before{content:"PRBET 电竞赛事竞猜，覆盖 CS2 与 Valorant";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
 .footer-links a{border-radius:999px;padding:5px 12px;transition:border-color .15s ease,background-color .15s ease,color .15s ease}
 .site-footer .icp-info:empty{display:none}
 
@@ -354,4 +354,129 @@ html[data-theme=dark] .hh-hero-logo{background:rgba(0,0,0,.18);border-color:var(
 /* 尊重减少动态偏好 */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+/* Inline metadata pieces (tournament, stage, time...) are spaced apart instead of joined by a separator glyph. */
+.meta-part+.meta-part{margin-left:.8em}
+#userPanel .user-role{font-size:11px;font-weight:600;opacity:.7}
+
+/* ---------- 实时比分 / 单图比分（GRID 补充数据） ---------- */
+.home-layout .match-center .match-score.live-score{font-size:1.9rem;box-shadow:none}
+.home-layout .match-center .match-score.live-score>span{padding:0!important;background:transparent!important;border-radius:0!important;font-size:1em!important;font-weight:900;line-height:1;color:var(--live)}
+.home-layout .match-center .match-score.live-score>em{color:color-mix(in srgb,var(--live) 55%,transparent)}
+.home-layout .match-center>.live-map{background:var(--live-soft);color:var(--live);font-variant-numeric:tabular-nums}
+.match-maps{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 16px 0}
+.map-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:var(--radius-ctl);background:var(--surface-input);border:1px solid var(--border-soft);color:var(--text-secondary);font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.4}
+.map-chip b{color:var(--text-primary);font-weight:800;margin-right:2px}
+.map-chip em{font-style:normal;opacity:.6}
+.map-chip .won{color:var(--success-color)}
+.map-chip.ongoing{border-color:color-mix(in srgb,var(--live) 40%,transparent);background:var(--live-soft);color:var(--live)}
+.map-chip.ongoing b{color:var(--live)}
+@media(max-width:620px){.match-maps{margin:8px 12px 0;gap:4px}.map-chip{font-size:.68rem;padding:2px 6px}}
+
+/* ---------- 比赛详情：地图比分 + BP 流程 ---------- */
+.match-center-detail{display:grid;gap:16px;padding-top:4px}
+.mc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding-right:40px;color:var(--text-secondary);font-size:.8rem;font-weight:700}
+.mc-meta img{width:18px;height:18px;object-fit:contain}
+.mc-hero{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:16px 12px;border-radius:var(--radius-card);background:var(--surface-input);border:1px solid var(--border-soft)}
+.mc-team{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;text-align:center}
+.mc-team img,.mc-team .placeholder{width:64px;height:64px;object-fit:contain}
+.mc-team strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1.05rem;color:var(--text-primary)}
+.mc-team.won strong{color:var(--success-color)}
+.mc-hero-center{display:flex;flex-direction:column;align-items:center;gap:6px}
+.mc-score{display:flex;align-items:baseline;gap:8px;font-size:2.4rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.mc-score em{font-style:normal;font-size:.7em;color:var(--text-secondary)}
+.mc-score .won{color:var(--success-color)}
+.mc-score-vs{font-size:1.4rem;color:var(--text-secondary)}
+.mc-status{padding:2px 10px;border-radius:999px;background:rgba(123,145,178,.14);color:var(--text-secondary);font-size:.72rem;font-weight:800}
+.mc-status.live{background:var(--live-soft);color:var(--live)}
+.mc-section h3{margin:0 0 8px;font-size:.92rem;color:var(--text-primary);letter-spacing:.02em}
+.mc-maps{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.mc-maps>.mc-map{flex:0 1 calc((100% - 20px) / 3);min-width:0}
+.mc-map{display:flex;flex-direction:column;overflow:hidden;border-radius:var(--radius-card);border:1px solid var(--border-soft);background:var(--surface-input)}
+.mc-map.ongoing{border-color:color-mix(in srgb,var(--live) 55%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--live) 25%,transparent)}
+.mc-map-art{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;height:86px;padding:8px 10px;background-color:#26313f;background-size:cover;background-position:center;color:#fff}
+.mc-map-art::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,16,24,.05) 20%,rgba(10,16,24,.78))}
+.mc-map-art.no-art{background-image:linear-gradient(135deg,#2c3a4b,#1b2430)}
+.mc-map-art>*{position:relative}
+.mc-map-art strong{font-size:1.05rem;font-weight:900;letter-spacing:.02em;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.mc-map-art small{font-size:.7rem;font-weight:700;opacity:.85}
+.mc-map.upcoming .mc-map-art,.mc-map.skipped .mc-map-art{filter:grayscale(.75) brightness(.8)}
+.mc-map-result{display:grid;gap:2px;padding:8px 10px}
+.mc-map-team{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.86rem;font-weight:700;color:var(--text-primary)}
+.mc-map-team span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-map-team b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.mc-map-team.won b{color:var(--success-color)}
+.mc-map-team.lost{color:var(--text-secondary)}
+.mc-map-team.lost b{color:var(--danger-color)}
+.mc-map-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 10px;border-top:1px dashed var(--border-soft);color:var(--text-secondary);font-size:.72rem;font-weight:700}
+.mc-live{color:var(--live);display:inline-flex;align-items:center;gap:4px}
+.mc-live::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:polishPulse 1.6s ease-out infinite}
+.mc-pending{opacity:.8}
+.mc-veto{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.mc-veto li{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-ctl);background:var(--surface-input);border:1px solid var(--border-soft);border-left:3px solid var(--danger-color);font-size:.86rem;color:var(--text-primary)}
+.mc-veto li.mc-veto-pick{border-left-color:var(--success-color)}
+.mc-veto li.mc-veto-decider{border-left-color:var(--accent-line)}
+.mc-veto em{font-style:normal;color:var(--text-secondary);font-size:.8rem;margin-left:4px}
+.mc-veto-no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:rgba(123,145,178,.16);color:var(--text-secondary);font-size:.72rem;font-weight:800;flex:0 0 auto}
+.mc-source{margin:0;color:var(--text-secondary);font-size:.72rem}
+@media(max-width:620px){.mc-team img,.mc-team .placeholder{width:44px;height:44px}.mc-score{font-size:1.8rem}.mc-maps>.mc-map{flex-basis:calc((100% - 10px) / 2)}.mc-map-art{height:70px}}
+
+/* 赛事回看：实时比分与单图比分条 */
+.ar-score.ar-live-score span{color:var(--live)}
+.ar-score.ar-live-score em{color:color-mix(in srgb,var(--live) 55%,transparent)}
+.ar-match-main .match-maps{grid-column:-2/-1;justify-content:center;margin:8px 0 0}
+
+/* ---------- 比赛详情弹窗：地图 / 预测 / 交锋 ---------- */
+.rv-md{display:grid;gap:12px}
+.rv-md-tabs{display:flex;gap:4px;margin-right:44px;padding:3px;border-radius:var(--radius-ctl);background:var(--surface-4);border:1px solid var(--border-soft)}
+.rv-md-tabs button{flex:1 1 0;width:auto;padding:6px 10px;border:0;border-radius:3px;background:transparent;box-shadow:none;color:var(--text-secondary);font-size:.85rem;font-weight:800;transform:none;transition:none}
+.rv-md-tabs button:hover{color:var(--text-primary);transform:none}
+.rv-md-tabs button.active{background:var(--surface-input);color:var(--text-heading);box-shadow:0 1px 2px rgba(18,31,48,.12)}
+.rv-md-body{min-width:0}
+.rv-md-loading{padding:40px 0;text-align:center;color:var(--text-secondary);font-weight:700}
+/* 详情弹窗内的地图页自带右上角留白（关闭按钮），标签栏已让出位置 */
+.rv-md-body .mc-meta{padding-right:0}
+.modal-panel:has(.rv-md){width:min(780px,100%)}
+
+/* 主页卡片：单图比分条上下留白一致（原先只有上边距，紧贴页脚） */
+.match-card .match-maps{margin-bottom:12px}
+
+/* ---------- 主页比赛卡片：紧凑版（赛段/时间并入头部，底部三行合并为一条底栏） ---------- */
+.home-layout .match-card .match-header{padding:10px 14px 8px;align-items:flex-start;gap:10px}
+.home-layout .match-card .match-tournament{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;min-width:0;max-width:none;flex:1 1 auto}
+.home-layout .match-tournament-line{display:flex;align-items:center;gap:6px;min-width:0}
+.home-layout .match-tournament-line .tournament-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-layout .match-sub{display:flex;align-items:baseline;gap:10px;min-width:0;color:var(--text-secondary);font-size:.74rem;font-weight:700;white-space:nowrap}
+.home-layout .match-sub span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary)}
+.home-layout .match-card .match-teams{margin:6px 14px 0}
+.home-layout .match-card .team{min-height:0;padding:8px 6px}
+.home-layout .match-card .match-center{min-height:0}
+.home-layout .match-finished .match-center::after{content:none;display:none}
+.home-layout .match-card .consensus{margin:8px 14px 0}
+.home-layout .match-card .prediction-form{margin:8px 14px 0;padding:6px}
+.home-layout .match-card .prediction-form label{display:none}
+.home-layout .match-card .score-picks{grid-template-columns:repeat(auto-fit,minmax(58px,1fr))!important;gap:5px!important}
+.home-layout .match-card .score-pick{padding:4px 2px!important;line-height:1.15}
+.home-layout .match-card .score-pick strong{font-size:.9rem}
+.home-layout .match-card .score-pick span{font-size:.66rem}
+.card-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin:8px 14px 0;padding:8px 0 10px;border-top:1px dashed var(--border-soft)}
+.card-bar-main{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0}
+.card-bar-main:empty{display:none}
+.card-bar-main .match-maps{margin:0!important;justify-content:flex-start;gap:4px}
+.card-bar-main .map-chip{padding:2px 7px;font-size:.72rem}
+.card-bar-actions{display:flex;align-items:center;gap:12px;margin-left:auto;white-space:nowrap}
+.card-bar .link-btn{width:auto;padding:0;font-size:.78rem}
+.card-bar .link-btn.danger{background:transparent!important;box-shadow:none!important;color:var(--danger-color)!important}
+/* 同一行卡片不再被最高的那张撑高：各自按内容高度 */
+.home-layout .home-tournament-matches,.home-layout #matches.grid{align-items:start}
+.pick-count{color:var(--text-secondary);font-size:.76rem;font-weight:700}
+.my-pick{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;background:var(--surface-4);color:var(--text-primary);font-size:.74rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.my-pick b{font-weight:900}
+.my-pick.correct{background:rgba(30,166,114,.13);color:var(--success-color)}
+.my-pick.wrong{background:rgba(217,75,99,.11);color:var(--danger-color)}
+.my-pick.pending{background:rgba(245,158,11,.14);color:var(--warning-color)}
+.my-pick.forfeit{color:var(--text-secondary)}
+@media(max-width:620px){
+  .home-layout .match-card .match-header{padding:9px 12px 6px}
+  .home-layout .match-card .match-teams,.home-layout .match-card .consensus,.home-layout .match-card .prediction-form,.card-bar{margin-left:12px;margin-right:12px}
 }

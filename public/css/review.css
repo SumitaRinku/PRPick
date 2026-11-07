@@ -1,0 +1,193 @@
+/* =====================================================================
+   review.css —— 赛事回看（列表 + 赛事详情）。最后加载，只作用于 rv- 前缀。
+   原则：少文字、强层级。数字代替句子，次要信息靠悬停提示。
+   颜色全部取 style.css / polish.css 的主题变量，明暗主题自动切换。
+   ===================================================================== */
+
+.rv-page{display:grid;gap:14px;padding-top:18px;padding-bottom:40px}
+.rv-page [hidden]{display:none!important}
+/* style.css 窄屏把所有按钮拉满宽度：回看页的分段、标签与小按钮保持内容宽度 */
+.rv-page button{width:auto;white-space:nowrap}
+/* 网格/弹性子项默认 min-width:auto，长赛事名会把卡片撑出屏幕 */
+.rv-page>*,.rv-list>*,.rv-group,.rv-detail>*{min-width:0}
+
+/* ---------- 工具栏 ---------- */
+.rv-toolbar{display:grid;gap:10px;padding:12px;border:1px solid var(--border-color);border-radius:var(--radius-card);background:var(--surface-1)}
+.rv-toolbar-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;min-width:0}
+.rv-toolbar-row>*{min-width:0}
+.rv-toolbar-chips{justify-content:space-between}
+.rv-seg{display:inline-flex;padding:2px;border-radius:var(--radius-ctl);background:var(--surface-4);border:1px solid var(--border-soft)}
+.rv-seg button{padding:5px 12px;border:0;border-radius:3px;background:transparent;box-shadow:none;color:var(--text-secondary);font-size:.82rem;font-weight:700;transform:none}
+.rv-seg button:hover{color:var(--text-primary);transform:none}
+.rv-seg button.active{background:var(--surface-input);color:var(--text-heading);box-shadow:0 1px 2px rgba(18,31,48,.12)}
+.rv-search{position:relative;display:flex;align-items:center;flex:1 1 200px;max-width:320px;margin:0 0 0 auto}
+.rv-search svg{position:absolute;left:10px;width:16px;height:16px;color:var(--text-secondary);pointer-events:none}
+.rv-search input{width:100%;min-width:0;padding:7px 10px 7px 32px;border-radius:var(--radius-ctl);font-size:.84rem;font-weight:600}
+.rv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rv-chip{padding:3px 10px;border-radius:999px;border:1px solid var(--border-soft);background:transparent;box-shadow:none;color:var(--text-secondary);font-size:.76rem;font-weight:700;transform:none}
+.rv-chip:hover{color:var(--text-primary);border-color:var(--border-color);transform:none}
+.rv-chip.active{background:var(--primary-color);border-color:var(--primary-color);color:#fff}
+.rv-tier .rv-chip.active{background:var(--text-heading);border-color:var(--text-heading);color:var(--surface-1)}
+
+/* ---------- 分组标题 ---------- */
+.rv-group{display:grid;gap:10px}
+.rv-group-title{display:flex;align-items:baseline;gap:8px;margin:6px 2px 0;font-size:.95rem;color:var(--text-heading)}
+.rv-group-title span{color:var(--text-secondary);font-size:.78rem;font-weight:700}
+.rv-list{display:grid;gap:18px}
+.rv-empty,.rv-loading{padding:48px 16px;text-align:center;color:var(--text-secondary);font-weight:700}
+.rv-empty .rv-act{margin-top:12px}
+
+/* ---------- logo ---------- */
+.rv-logo{display:grid;place-items:center;flex:0 0 auto;width:44px;height:44px;padding:5px;border-radius:var(--radius-ctl);background:var(--surface-input);border:1px solid var(--border-soft);overflow:hidden}
+.rv-logo.sm{width:34px;height:34px;padding:4px}
+.rv-logo.xs{width:26px;height:26px;padding:3px}
+.rv-logo.lg{width:64px;height:64px;padding:7px}
+.rv-logo img,.rv-logo .tournament-logo{width:100%;height:100%;max-width:100%;max-height:100%;padding:0;border:0;background:transparent;object-fit:contain}
+.rv-mark{display:grid;place-items:center;width:100%;height:100%;color:var(--primary-color);font-size:.78rem;font-weight:900;letter-spacing:.02em}
+.rv-mark.valorant{color:#ff4655}
+.rv-logo.xs .rv-mark{font-size:.6rem}
+
+/* ---------- 通用小件 ---------- */
+.rv-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading);font-weight:800}
+.rv-sub{display:flex;align-items:center;gap:6px;min-width:0;color:var(--text-secondary);font-size:.76rem;font-weight:700;white-space:nowrap}
+.rv-sub>span:last-child{overflow:hidden;text-overflow:ellipsis}
+.rv-game{padding:0 5px;border-radius:2px;background:rgba(30,166,114,.12);color:var(--success-color);font-size:.66rem;font-weight:800}
+.rv-game.valorant{background:rgba(255,70,85,.12);color:#ff4655}
+.rv-progress{display:block;height:3px;border-radius:2px;background:var(--surface-4);overflow:hidden}
+.rv-progress i{display:block;height:100%;background:var(--primary-color);border-radius:inherit}
+.rv-count{color:var(--text-heading);font-size:.95rem;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rv-count small{color:var(--text-secondary);font-size:.72rem;font-weight:700}
+.rv-count.lg{font-size:1.5rem}
+.rv-count.lg small{font-size:.8rem}
+.rv-live{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:999px;background:var(--live-soft);color:var(--live);font-size:.72rem;font-weight:800;white-space:nowrap}
+.rv-live i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:polishPulse 1.6s ease-out infinite}
+.rv-act{padding:3px 9px;border-radius:var(--radius-ctl);border:1px solid var(--border-soft);background:var(--surface-input);box-shadow:none;color:var(--text-secondary);font-size:.74rem;font-weight:700;transform:none;white-space:nowrap}
+.rv-act:hover{color:var(--primary-color);border-color:var(--primary-color);transform:none}
+
+/* ---------- 列表：进行中 / 即将开始（卡片） ---------- */
+.rv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.rv-cards>*,.rv-tiles>*{min-width:0}
+.rv-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-color);border-radius:var(--radius-card);background:var(--surface-1);color:inherit;text-decoration:none;box-shadow:var(--card-shadow);transition:border-color .15s ease,box-shadow .15s ease}
+.rv-card:hover{border-color:var(--primary-color);box-shadow:var(--card-shadow-hover);text-decoration:none}
+.rv-card.is-live{border-left:3px solid var(--live)}
+.rv-card-body{display:grid;gap:5px;flex:1 1 auto;min-width:0}
+.rv-card-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
+
+/* ---------- 列表：已结束（紧凑方块） ---------- */
+.rv-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.rv-tile{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border-soft);border-radius:var(--radius-card);background:var(--surface-1);color:inherit;text-decoration:none;transition:border-color .15s ease}
+.rv-tile:hover{border-color:var(--primary-color);text-decoration:none}
+.rv-tile-body{display:grid;gap:2px;min-width:0}
+.rv-tile .rv-name{font-size:.86rem}
+
+/* ---------- 赛事预告：单行横向滚动 ---------- */
+.rv-upcoming{display:grid;gap:8px;min-width:0}
+.rv-upcoming-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.rv-preview{display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:260px;padding:6px 10px 6px 6px;border:1px dashed var(--border-color);border-radius:var(--radius-card);background:var(--surface-2)}
+.rv-preview-body{display:grid;min-width:0}
+.rv-preview-body strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);font-size:.8rem}
+.rv-preview-body small{display:flex;gap:5px;color:var(--text-secondary);font-size:.7rem;font-weight:700;white-space:nowrap}
+
+/* ---------- 详情：头部 ---------- */
+.rv-detail-host{display:block}
+.rv-detail{display:grid;gap:12px;min-width:0}
+.rv-back{justify-self:start;padding:2px 0;border:0;background:transparent;box-shadow:none;color:var(--text-secondary);font-size:.82rem;font-weight:700;transform:none}
+.rv-back:hover{color:var(--primary-color);transform:none}
+.rv-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-color);border-top:3px solid var(--primary-color);border-radius:var(--radius-card);background:var(--surface-1)}
+.rv-hero.valorant{border-top-color:#ff4655}
+.rv-hero-text{display:grid;gap:4px;min-width:0}
+.rv-hero h2{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading);font-size:1.35rem}
+.rv-hero-side{display:grid;justify-items:end;gap:4px;min-width:120px}
+.rv-hero-side .rv-progress{width:100%}
+.rv-notice{margin:0;color:var(--text-secondary);font-size:.76rem}
+
+/* ---------- 详情：阶段标签 ---------- */
+.rv-tabs{position:sticky;top:0;z-index:5;display:flex;gap:4px;overflow-x:auto;padding:4px;border:1px solid var(--border-color);border-radius:var(--radius-card);background:var(--surface-1);scrollbar-width:none}
+.rv-tabs::-webkit-scrollbar{display:none}
+.rv-tab{transition:none;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:7px 14px;border:0;border-radius:var(--radius-ctl);background:transparent;box-shadow:none;color:var(--text-secondary);font-size:.85rem;font-weight:800;transform:none}
+.rv-tab:hover{background:var(--surface-3);color:var(--text-primary);transform:none}
+.rv-tab.active{background:var(--primary-color);color:#fff}
+.rv-tab small{font-size:.7rem;font-weight:700;opacity:.75;font-variant-numeric:tabular-nums}
+.rv-tab-done{font-style:normal;font-size:.72rem;color:var(--success-color)}
+.rv-tab.active .rv-tab-done{color:#fff}
+.rv-tab-live{width:7px;height:7px;border-radius:50%;background:var(--live);animation:polishPulse 1.6s ease-out infinite}
+.rv-tab.active .rv-tab-live{background:#fff}
+
+/* ---------- 详情：阶段面板 ---------- */
+.rv-stages{display:grid;gap:12px;min-width:0}
+.rv-stages.ar-focus-stages{padding:0;border:0;background:transparent}
+.rv-stage{min-width:0}
+.rv-stage.tournament-stage-block{padding:0;border:0;background:transparent}
+.rv-stage:not([open]){display:none}
+/* 有标签时阶段名由标签承担；summary 只留给机器人截图读取 */
+.rv-stage>summary{display:none}
+.rv-stage .tournament-stage-content{display:grid;gap:14px;min-width:0;padding:0;border:0;background:transparent}
+.rv-bracket{min-width:0}
+.rv-rounds{display:grid;gap:14px}
+.rv-round{display:grid;gap:6px}
+.rv-round-title{margin:0 2px;color:var(--text-secondary);font-size:.78rem;font-weight:800;letter-spacing:.02em}
+.rv-match-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.rv-match-list>*{min-width:0}
+
+/* ---------- 详情：比赛行 ---------- */
+.rv-match{display:grid;gap:8px;padding:9px 12px 11px;border:1px solid var(--border-color);border-radius:var(--radius-card);background:var(--surface-1);transition:border-color .15s ease,box-shadow .15s ease}
+.rv-match.clickable{cursor:pointer}
+.rv-match.clickable:hover,.rv-match.clickable:focus-visible{border-color:var(--primary-color);box-shadow:var(--card-shadow-hover);outline:0}
+.rv-match.live{border-color:color-mix(in srgb,var(--live) 55%,transparent);box-shadow:inset 3px 0 0 var(--live)}
+.rv-match.tbd{opacity:.7}
+.rv-match-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;color:var(--text-secondary);font-size:.72rem;font-weight:700}
+.rv-meta-right{display:flex;gap:8px;white-space:nowrap}
+.rv-when{display:inline-flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+.rv-when-day{color:var(--text-secondary);font-size:.72rem;font-weight:700}
+.rv-when-time{color:var(--text-primary);font-size:.78rem;font-weight:800}
+.rv-match.finished .rv-when-time{color:var(--text-secondary)}
+.rv-when-live{display:inline-flex;align-items:center;gap:5px;color:var(--live);font-size:.78rem;font-weight:900}
+.rv-when-live i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:polishPulse 1.6s ease-out infinite}
+.rv-when-tag{justify-self:start;padding:0 6px;border-radius:2px;background:var(--surface-4);color:var(--text-secondary);font-size:.72rem;font-weight:800}
+.rv-teams{display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);align-items:center;gap:10px;min-width:0}
+.rv-team{display:flex;align-items:center;gap:8px;min-width:0;color:var(--text-primary);font-weight:800;text-decoration:none}
+.rv-team:hover{color:var(--primary-color);text-decoration:none}
+.rv-team.side-1{justify-content:flex-end;text-align:right}
+.rv-team img,.rv-team .placeholder{flex:0 0 auto;width:26px;height:26px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;object-fit:contain;font-size:.5rem}
+.rv-team-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem}
+.rv-team.won .rv-team-name{color:var(--success-color)}
+.rv-team.lost{color:var(--text-secondary);font-weight:700}
+.rv-team.lost img{opacity:.6}
+.rv-team.tbd{color:var(--text-secondary);font-weight:700}
+.rv-mid{display:grid;justify-items:center}
+.rv-score{display:inline-flex;align-items:baseline;gap:5px;font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.rv-score em{font-style:normal;font-size:.8em;opacity:.6}
+.rv-score b.won{color:var(--text-heading)}
+.rv-score.vs{font-size:.8rem;letter-spacing:.06em;opacity:.7}
+.rv-score.live,.rv-score.live b{color:var(--live)}
+.rv-match.match-row-highlight{animation:matchRowPulse 1.8s ease;outline:2px solid var(--primary-color);outline-offset:-2px}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width:720px){
+  .rv-search{flex-basis:100%;max-width:none;margin:0}
+  .rv-toolbar{padding:10px}
+  .rv-toolbar-chips{justify-content:flex-start}
+  .rv-chips{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  .rv-chips::-webkit-scrollbar{display:none}
+  .rv-seg button{padding:5px 9px}
+  .rv-cards{grid-template-columns:1fr}
+  .rv-tiles{grid-template-columns:1fr 1fr}
+  .rv-tile{padding:7px 8px;gap:8px}
+  .rv-tile .rv-logo.sm{width:28px;height:28px}
+  .rv-hero{grid-template-columns:auto minmax(0,1fr);padding:12px}
+  .rv-hero .rv-logo.lg{width:48px;height:48px;padding:5px}
+  .rv-hero h2{font-size:1.1rem;white-space:normal}
+  .rv-hero-side{grid-column:1/-1;grid-template-columns:auto 1fr auto;align-items:center;justify-items:stretch;min-width:0}
+  .rv-hero-side .rv-count.lg{font-size:1.1rem;order:3}
+  .rv-match-list{grid-template-columns:1fr}
+  .rv-match{padding:8px 10px 10px;gap:6px}
+  .rv-teams{grid-template-columns:minmax(0,1fr) 56px minmax(0,1fr);gap:6px}
+  .rv-team{gap:6px}
+  .rv-team img,.rv-team .placeholder{width:22px;height:22px}
+  .rv-team-name{font-size:.82rem}
+  .rv-score{font-size:1rem}
+  .rv-when-time{font-size:.8rem}
+}
+@media (max-width:420px){
+  .rv-tiles{grid-template-columns:1fr}
+}

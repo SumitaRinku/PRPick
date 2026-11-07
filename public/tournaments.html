@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/css/hub.css">
     <link rel="stylesheet" href="/css/bracket.css">
     <link rel="stylesheet" href="/css/polish.css">
+    <link rel="stylesheet" href="/css/review.css">
     <!-- 主题脚本置于 head 内同步执行：首帧渲染前写入 data-theme，避免暗色模式下页面闪白 -->
     <script src="/js/theme.js"></script>
 </head>
@@ -27,57 +28,38 @@
             <div id="userPanel"></div>
         </nav>
         <section>
-            <p class="eyebrow">TOURNAMENT ARCHIVE</p>
             <h1>赛事回看</h1>
-            <p>按游戏、状态与级别筛选赛事，回看赛果、赛程进度与预测统计。</p>
         </section>
     </header>
 
-    <main class="page-shell ar-page">
-        <section class="ar-bar" aria-label="赛事筛选">
-            <div id="gameSeg" class="ar-seg" role="group" aria-label="游戏类型">
-                <button type="button" data-game="cs2">CS2</button>
-                <button type="button" data-game="valorant">Valorant</button>
-                <button type="button" data-game="">全部</button>
-            </div>
-            <label class="ar-search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.45l4.25 4.25 1.4-1.4-4.25-4.25A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z" fill="currentColor"/></svg>
-                <input id="tournamentSearch" type="search" placeholder="搜索赛事名称" aria-label="搜索赛事" autocomplete="off">
-            </label>
-            <label class="ar-field">状态
-                <select id="statusFilter" onchange="loadTournaments()">
-                    <option value="">全部</option>
-                    <option value="ongoing">进行中</option>
-                    <option value="finished">已结束</option>
-                </select>
-            </label>
-            <label class="ar-field">级别
-                <select id="tierFilter" onchange="setTier(this.value)">
-                    <option value="">全部</option>
-                    <option value="1">高级</option>
-                    <option value="2">普通</option>
-                    <option value="3">低级</option>
-                </select>
-            </label>
-            <div id="viewModeToggle" class="ar-toggle" role="group" aria-label="赛事列表显示方式">
-                <button type="button" data-view-mode="detail" onclick="setTournamentViewMode('detail')" title="卡片视图">卡片</button>
-                <button type="button" data-view-mode="compact" onclick="setTournamentViewMode('compact')" title="紧凑视图">紧凑</button>
-            </div>
-            <span id="tournamentCount" class="ar-count"></span>
-            <div id="brandFilters" class="ar-brands" aria-label="按厂牌筛选"></div>
-            <p id="tierHint" class="ar-hint"></p>
-        </section>
-        <section id="previewSection" class="ar-preview" aria-label="未来赛事预告" hidden>
-            <header class="ar-preview-head">
-                <div>
-                    <h2>未来赛事预告</h2>
-                    <p id="previewMeta"></p>
+    <main class="page-shell rv-page">
+        <section class="rv-toolbar" aria-label="赛事筛选">
+            <div class="rv-toolbar-row">
+                <div id="gameSeg" class="rv-seg" role="group" aria-label="游戏">
+                    <button type="button" data-game="cs2">CS2</button>
+                    <button type="button" data-game="valorant">Valorant</button>
+                    <button type="button" data-game="">全部</button>
                 </div>
-                <button type="button" class="ar-preview-toggle" id="previewToggle" aria-expanded="true" onclick="togglePreviewSection()">收起</button>
-            </header>
-            <div id="previewList" class="ar-preview-list"></div>
+                <div id="statusSeg" class="rv-seg" role="group" aria-label="状态">
+                    <button type="button" data-status="">全部</button>
+                    <button type="button" data-status="ongoing">进行中</button>
+                    <button type="button" data-status="finished">已结束</button>
+                </div>
+                <label class="rv-search">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.45l4.25 4.25 1.4-1.4-4.25-4.25A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z" fill="currentColor"/></svg>
+                    <input id="tournamentSearch" type="search" placeholder="搜索赛事" aria-label="搜索赛事" autocomplete="off">
+                </label>
+            </div>
+            <div class="rv-toolbar-row rv-toolbar-chips">
+                <div id="brandFilters" class="rv-chips" aria-label="厂牌"></div>
+                <div id="tierSeg" class="rv-chips rv-tier" aria-label="级别"></div>
+            </div>
         </section>
-        <section id="tournaments" class="ar-list"></section>
+        <section id="previewSection" class="rv-upcoming" aria-label="赛事预告" hidden>
+            <h2 class="rv-group-title">赛事预告<span id="previewMeta"></span></h2>
+            <div id="previewList" class="rv-upcoming-list"></div>
+        </section>
+        <section id="tournaments" class="rv-list"></section>
     </main>
 
     <div id="detailModal" class="modal" hidden>
@@ -97,6 +79,7 @@
     <script src="/js/tournament-logos.js"></script>
     <script src="/js/shared.js"></script>
     <script src="/js/h2h.js"></script>
+    <script src="/js/match-center.js"></script>
     <script src="/js/bracket-graph.js"></script>
     <script src="/js/bracket.js"></script>
     <script src="/js/bracket-ui.js"></script>

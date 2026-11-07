@@ -97,7 +97,7 @@
             <section class="hh-panel" data-pane="${side}">
                 <header class="hh-panel-head">
                     <a href="/teams.html?team=${m[`${side}_id`]}">${h2hLogo(m[`${side}_logo_url`], m[`${side}_dark_logo_url`])}<b>${esc(m[`${side}_name`])}</b></a>
-                    <span>近 ${total} 场 <b>${team.wins}胜 ${team.losses}负</b> · ${rate}%</span>
+                    <span>近 ${total} 场 <b>${team.wins}胜 ${team.losses}负</b> 胜率 ${rate}%</span>
                 </header>
                 ${recentRows(team.recent)}
             </section>`;
@@ -105,7 +105,7 @@
         return `
         <div class="hh" data-active="meet">
             <div class="hh-hero">
-                <div class="hh-kicker"><span>对阵历史</span><em>${esc(m.format || '')}${m.format ? ' · ' : ''}${esc(formatDateTime(m.match_time))}</em></div>
+                <div class="hh-kicker"><span>对阵历史</span><em>${m.format ? `<span class="meta-part">${esc(m.format)}</span>` : ''}<span class="meta-part">${esc(formatDateTime(m.match_time))}</span></em></div>
                 <div class="hh-hero-grid">
                     ${heroTeam('team1', data.team1)}
                     <div class="hh-tally" aria-label="交手战绩 ${t1Meet} 比 ${t2Meet}">
@@ -126,7 +126,7 @@
             </div>
             <div class="hh-body">
                 <section class="hh-panel hh-meets" data-pane="meet">
-                    <header class="hh-panel-head"><b>交手记录</b><span>开赛前 · 最近 ${meets.length} 场</span></header>
+                    <header class="hh-panel-head"><b>交手记录</b><span>开赛前最近 ${meets.length} 场</span></header>
                     ${meetingRows(meets, m)}
                 </section>
                 <div class="hh-forms">
@@ -162,5 +162,13 @@
         }
     }
 
+    // 渲染到指定容器（回看页的比赛详情弹窗把对阵历史作为其中一个标签页）
+    async function renderHead2HeadInto(matchId, container) {
+        const data = await h2hApi(`/matches/${matchId}/head2head`);
+        container.innerHTML = render(data);
+        bindTabs(container.querySelector('.hh'));
+    }
+
     window.showMatchHead2Head = showMatchHead2Head;
+    window.renderHead2HeadInto = renderHead2HeadInto;
 })();
