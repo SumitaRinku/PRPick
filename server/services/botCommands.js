@@ -18,7 +18,7 @@ function groupByTournament(rows, formatRow) {
     return [...groups.values()].map(({ row, lines }) => {
         const game = { cs2: 'CS2', valorant: 'Valorant' }[row.game_type] || row.game_type;
         const name = String(row.tournament_name || '').replace(/[\r\n]/g, ' ');
-        return [`${game} · ${name}`, ...lines].join('\n');
+        return [`${name}（${game}）`, ...lines].join('\n');
     }).join('\n\n');
 }
 
@@ -58,7 +58,7 @@ function queryPage(db, select, from, where, params, order, action, filter) {
     const rows = db.prepare(`SELECT ${select} ${from} WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`)
         .all(...params, filter.size, (filter.page - 1) * filter.size);
     const next = filter.page < pages ? `\n下一页：/prbet ${action}${filter.args ? ` ${filter.args}` : ''} ${filter.page + 1}` : '';
-    return { rows, footer: `\n\n第 ${filter.page}/${pages} 页 · 共 ${total} ${action === '赛程' ? '场' : '条'}${next}` };
+    return { rows, footer: `\n\n第 ${filter.page}/${pages} 页，共 ${total} ${action === '赛程' ? '场' : '条'}${next}` };
 }
 
 function predictionState(p, now) {
@@ -161,7 +161,8 @@ function runCommand(db, input, options = {}) {
             '',
             '▶ 管理员',
             '开启竞猜 / 关闭竞猜 比赛ID',
-            '结算 比赛ID 2:1 · 弃权 比赛ID 1或2'
+            '结算 比赛ID 2:1',
+            '弃权 比赛ID 获胜方序号（1或2）'
         ].join('\n');
         if (action === '绑定') {
             const code = String(args[0] || '').toUpperCase();
@@ -202,7 +203,7 @@ function runCommand(db, input, options = {}) {
                 'm.id,m.match_time,m.format,m.tournament_id,t.game_type,t.name tournament_name,a.name a,b.name b',
                 from, where, params, 'julianday(m.match_time),m.id', action, filter);
             matchIds = rows.map(row => row.id);
-            return rows.length ? `可竞猜赛程${filter.args ? ` · ${filter.args}` : ''}：\n\n`
+            return rows.length ? `可竞猜赛程${filter.args ? `（${filter.args}）` : ''}：\n\n`
                 + groupByTournament(rows, m => `#${m.id} ${beijingTime(m.match_time)} ${m.a} vs ${m.b} ${m.format}`) + footer
                 : '暂无可竞猜的比赛';
         }
@@ -252,8 +253,8 @@ function runCommand(db, input, options = {}) {
                 'p.*,m.tournament_id,m.match_time,m.status match_status,m.is_forfeit,t.game_type,t.name tournament_name,a.name a,b.name b',
                 from, where, params, filter.status === '待开赛' ? 'julianday(m.match_time),p.id' : 'p.id DESC', action, filter);
             matchIds = rows.map(row => row.match_id);
-            return `${binding.username} 的竞猜${filter.args ? ` · ${filter.args}` : ''}：\n\n`
-                + (rows.length ? groupByTournament(rows, p => `#${p.match_id} ${beijingTime(p.match_time)} ${p.a} ${p.predicted_team1_score}:${p.predicted_team2_score} ${p.b} · ${predictionState(p, now)}`) + footer : '暂无竞猜');
+            return `${binding.username} 的竞猜${filter.args ? `（${filter.args}）` : ''}：\n\n`
+                + (rows.length ? groupByTournament(rows, p => `#${p.match_id} ${beijingTime(p.match_time)} ${p.a} ${p.predicted_team1_score}:${p.predicted_team2_score} ${p.b}（${predictionState(p, now)}）`) + footer : '暂无竞猜');
         }
         if (action === '取消') {
             const text = predict(db, binding.user_id, args[0], 0, 0, now, true);

@@ -197,7 +197,8 @@ const ISOLATE_STAGE = `async (spec, colors) => {
         + '.bracket-scroll-shell,.bracket-viewport{overflow:visible!important}'
         + '.brx-head{display:flex;align-items:center;justify-content:space-between;gap:24px;box-sizing:border-box;padding:16px 22px 14px;background:' + colors.head + ';border-bottom:4px solid ' + colors.accent + ';color:#f5f7fa;font-family:MiSans,"Microsoft YaHei",sans-serif}'
         + '.brx-head b{display:block;font-size:26px;line-height:1.2}.brx-head small{display:block;margin-top:4px;color:' + colors.sub + ';font-size:15px;font-weight:500}'
-        + '.brx-head img{height:34px;flex:none}.brx-legend{display:flex;gap:16px;margin-top:8px;color:#f5f7fa;font-size:14px;font-weight:600}'
+        + '.brx-head>img{height:34px;flex:none}.brx-title{display:flex;align-items:center;gap:14px;min-width:0}'
+        + '.brx-mark{width:56px;height:56px;flex:none;box-sizing:border-box;padding:6px;border-radius:4px;background:#fff;object-fit:contain}.brx-legend{display:flex;gap:16px;margin-top:8px;color:#f5f7fa;font-size:14px;font-weight:600}'
         + '.brx-legend>span{display:inline-flex;align-items:center;gap:6px}.brx-legend .brx-chip{position:static;font-size:12px;line-height:18px;padding:0 6px;font-style:normal}'
         + '.brx-stage{box-sizing:border-box;margin-top:6px;padding:10px 22px 0;color:var(--text-heading);font:700 17px/1.3 MiSans,"Microsoft YaHei",sans-serif}'
         + '.brx-stage::before{content:"";display:inline-block;width:4px;height:16px;margin-right:8px;vertical-align:-2px;background:' + colors.accent + '}'
@@ -241,14 +242,26 @@ const ISOLATE_STAGE = `async (spec, colors) => {
     if (highlighted) for (const view of views) view.classList.add('brx-dim');
     const head = document.createElement('div');
     head.className = 'brx-head brx-band';
-    head.innerHTML = '<div><b></b><small></small></div><img src="/images/prbetlogo-light.png" alt="">';
+    head.innerHTML = '<div class="brx-title"><div class="brx-text"><b></b><small></small></div></div><img src="/images/prbetlogo-light.png" alt="">';
     head.querySelector('b').textContent = spec.caption[0] || '';
     head.querySelector('small').textContent = spec.caption[1] || '';
+    // Tournament logo beside its name: admin upload first, then the site's curated mapping.
+    const brand = spec.brand || {};
+    const logo = brand.logo || (typeof tournamentLogoUrl === 'function' ? tournamentLogoUrl(brand.fullName || brand.name, brand.game) : '');
+    if (logo) {
+        const mark = document.createElement('img');
+        mark.className = 'brx-mark';
+        mark.alt = '';
+        mark.referrerPolicy = 'no-referrer';
+        mark.addEventListener('error', () => mark.remove(), { once: true });
+        mark.src = logo;
+        head.firstChild.prepend(mark);
+    }
     if (highlighted) {
         const legend = document.createElement('span');
         legend.className = 'brx-legend';
         legend.innerHTML = ((spec.yesterday || []).length ? '<span><i class="brx-chip y">昨日</i>赛果</span>' : '') + ((spec.today || []).length ? '<span><i class="brx-chip t">今日</i>赛程</span>' : '');
-        head.firstChild.appendChild(legend);
+        head.querySelector('.brx-text').appendChild(legend);
     }
     views[0].parentElement.insertBefore(head, views[0]);
     // Several stages: name each one above its bracket.
@@ -261,7 +274,7 @@ const ISOLATE_STAGE = `async (spec, colors) => {
     });
     for (const image of document.querySelectorAll('img')) image.loading = 'eager';
     await document.fonts.ready;
-    const images = [head.querySelector('img'), ...views.flatMap(view => [...view.querySelectorAll('img')])];
+    const images = [...head.querySelectorAll('img'), ...views.flatMap(view => [...view.querySelectorAll('img')])];
     await Promise.race([Promise.all(images.map(img => img.complete ? 0 : new Promise(r => { img.onload = img.onerror = r; }))), new Promise(r => setTimeout(r, 8000))]);
     // bracket-ui re-lays out (and un-collapses columns) on its ResizeObserver; give it a few frames.
     await new Promise(r => setTimeout(r, 400));

@@ -373,7 +373,7 @@ function renderSyncStatus(sync = {}) {
     };
     const previewRun = sync.preview_last_run;
     const previewDetail = sync.preview_days
-        ? `预告前瞻 ${sync.preview_days} 天 · ${previewRun ? `预告${SYNC_STATUS_LABELS[previewRun.status] || previewRun.status} ${fmtTime(previewRun.started_at)}` : '尚未刷新'}`
+        ? `预告前瞻 ${sync.preview_days} 天，${previewRun ? `${fmtTime(previewRun.started_at)} 预告${SYNC_STATUS_LABELS[previewRun.status] || previewRun.status}` : '尚未刷新'}`
         : '';
     if (!sync.configured) return set('未配置同步', 'warn', previewDetail);
     if (!sync.enabled) return set('同步已停用', 'warn', previewDetail);
@@ -382,10 +382,10 @@ function renderSyncStatus(sync = {}) {
     if (!run) return set('等待首次同步', '', previewDetail);
     const parts = [`开始 ${fmtTime(run.started_at)}`];
     if (run.finished_at) parts.push(`完成 ${fmtTime(run.finished_at)}`);
-    if (run.status === 'success') parts.push(`写入 赛事 ${run.tournaments_upserted} · 队伍 ${run.teams_upserted} · 比赛 ${run.matches_upserted}`);
+    if (run.status === 'success') parts.push(`写入赛事 ${run.tournaments_upserted}、队伍 ${run.teams_upserted}、比赛 ${run.matches_upserted}`);
     if (run.message) parts.push(run.message);
     if (previewDetail) parts.push(previewDetail);
-    set(`上次同步${SYNC_STATUS_LABELS[run.status] || run.status}`, run.status === 'success' ? 'ok' : run.status === 'failed' ? 'bad' : 'warn', parts.join(' · '));
+    set(`上次同步${SYNC_STATUS_LABELS[run.status] || run.status}`, run.status === 'success' ? 'ok' : run.status === 'failed' ? 'bad' : 'warn', parts.join('；'));
 }
 
 async function syncNow() {
@@ -479,7 +479,7 @@ function tableBlock(tab, columns, rows, renderRow, emptyText = '当前筛选下�
     const more = rows.length > limit
         ? `<button type="button" class="ops-btn ghost sm" data-act="more" data-tab="${tab}">显示更多（剩余 ${rows.length - limit} 条）</button>`
         : '';
-    return `<div class="ops-table-meta"><span>共 ${rows.length} 条${rows.length > limit ? ` · 显示前 ${limit} 条` : ''}</span></div>
+    return `<div class="ops-table-meta"><span>共 ${rows.length} 条${rows.length > limit ? `，显示前 ${limit} 条` : ''}</span></div>
         <div class="ops-table-wrap"><table class="ops-table ops-table-${tab}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
         ${more ? `<div class="ops-table-more">${more}</div>` : ''}`;
 }
@@ -572,7 +572,7 @@ function overviewView() {
     const disabled = state.tournaments.filter(t => !t.is_active).length;
     const row = (m, actions) => `<li class="ops-brief">
         <span class="ops-brief-time">${fmtTime(m.match_time)}</span>
-        <span class="ops-brief-main"><strong>${esc(m.team1_name)} <em>vs</em> ${esc(m.team2_name)}</strong><small>${esc(m.tournament_name)} · ${esc(m.format)}</small></span>
+        <span class="ops-brief-main"><strong>${esc(m.team1_name)} <em>vs</em> ${esc(m.team2_name)}</strong><small><span class="meta-part">${esc(m.tournament_name)}</span><span class="meta-part">${esc(m.format)}</span></small></span>
         <span class="ops-brief-act">${actions}</span>
     </li>`;
     return `<section class="ops-panel">
@@ -620,7 +620,7 @@ const matchesView = {
         return tableBlock('matches', [['时间', 'nowrap'], ['对阵'], ['赛事'], ['赛制', 'center'], ['比分', 'center'], ['状态', 'center'], ['预测', 'center'], ['操作', 'right']], filteredMatches(), m => `
             <tr class="${m.status === 'cancelled' ? 'is-dim' : ''}${isOverdue(m) ? ' is-alert' : ''}">
                 <td class="nowrap ops-mono">${fmtTime(m.match_time)}</td>
-                <td><div class="ops-cell-main"><strong>${esc(m.team1_name)} <em>vs</em> ${esc(m.team2_name)}</strong><small>#${m.id}${m.name ? ` · ${esc(m.name)}` : ''}</small></div></td>
+                <td><div class="ops-cell-main"><strong>${esc(m.team1_name)} <em>vs</em> ${esc(m.team2_name)}</strong><small><span class="meta-part">#${m.id}</span>${m.name ? `<span class="meta-part">${esc(m.name)}</span>` : ''}</small></div></td>
                 <td><div class="ops-cell-main"><span class="ops-ellipsis" title="${esc(m.tournament_name)}">${esc(m.tournament_name)}</span><small>${gamePill(m.game_type)}</small></div></td>
                 <td class="center">${esc(m.format)}</td>
                 <td class="center ops-mono ops-score">${m.team1_score ?? '–'} : ${m.team2_score ?? '–'}</td>
@@ -653,7 +653,7 @@ const tournamentsView = {
         return tableBlock('tournaments', [['赛事'], ['游戏', 'center'], ['级别', 'center'], ['时间', 'nowrap'], ['比赛', 'center'], ['来源', 'center'], ['状态', 'center'], ['操作', 'right']], filteredTournaments(), t => {
             const uploaded = t.logo_url && t.logo_url.startsWith('/uploads/');
             return `<tr class="${t.is_active ? '' : 'is-dim'}">
-                <td><div class="ops-cell-id">${tournamentLogoImg(t)}<div class="ops-cell-main"><strong class="ops-ellipsis" title="${esc(t.name)}">${esc(t.name)}</strong><small>#${t.id}${t.short_name ? ` · ${esc(t.short_name)}` : ''}</small></div></div></td>
+                <td><div class="ops-cell-id">${tournamentLogoImg(t)}<div class="ops-cell-main"><strong class="ops-ellipsis" title="${esc(t.name)}">${esc(t.name)}</strong><small><span class="meta-part">#${t.id}</span>${t.short_name ? `<span class="meta-part">${esc(t.short_name)}</span>` : ''}</small></div></div></td>
                 <td class="center">${gamePill(t.game_type)}</td>
                 <td class="center nowrap">${tierPill(t)}</td>
                 <td class="nowrap ops-mono">${dateOnly(t.begin_at) || '—'}<small class="ops-block">${dateOnly(t.end_at) || ''}</small></td>
@@ -678,7 +678,7 @@ const previewsView = {
     table() {
         return tableBlock('previews', [['赛事'], ['游戏', 'center'], ['开始', 'nowrap'], ['结束', 'nowrap'], ['前台', 'center']], filteredPreviews(), p => `
             <tr class="${p.is_visible ? '' : 'is-dim'}">
-                <td><div class="ops-cell-id">${previewLogo(p)}<div class="ops-cell-main"><strong class="ops-ellipsis" title="${esc(p.name)}">${esc(p.name)}</strong><small>#${p.id} · ${esc(p.external_id)}</small></div></div></td>
+                <td><div class="ops-cell-id">${previewLogo(p)}<div class="ops-cell-main"><strong class="ops-ellipsis" title="${esc(p.name)}">${esc(p.name)}</strong><small><span class="meta-part">#${p.id}</span><span class="meta-part">外部 ID ${esc(p.external_id)}</span></small></div></div></td>
                 <td class="center">${gamePill(p.game_type)}</td>
                 <td class="nowrap ops-mono">${fmtTime(p.begin_at)}</td>
                 <td class="nowrap ops-mono">${fmtTime(p.end_at)}</td>
@@ -817,12 +817,12 @@ function createMatch() {
         title: '新增比赛',
         hint: '队伍列表随所选赛事的游戏自动过滤',
         body: `<div class="ops-form-grid">
-            ${field('赛事', select('tournament_id', state.tournaments.map(t => [t.id, `${t.name} · ${GAME_LABELS[t.game_type]}`]), first.id), { wide: true })}
+            ${field('赛事', select('tournament_id', state.tournaments.map(t => [t.id, `${t.name}（${GAME_LABELS[t.game_type]}）`]), first.id), { wide: true })}
             ${field('队伍 1', select('team1_id', teamOptionsFor(first.game_type)))}
             ${field('队伍 2', select('team2_id', teamOptionsFor(first.game_type)))}
             ${field('赛制', select('format', [['BO1', 'BO1'], ['BO3', 'BO3'], ['BO5', 'BO5']], 'BO3'))}
             ${field('开赛时间', input('match_time', '', 'type="datetime-local" required'))}
-            ${field('备注 / 阶段', input('name', '', 'placeholder="如：Playoffs · Semifinal"'), { wide: true })}
+            ${field('备注 / 阶段', input('name', '', 'placeholder="如：Playoffs Semifinal"'), { wide: true })}
         </div>`,
         submitText: '创建比赛',
         onOpen(form) {
@@ -848,7 +848,7 @@ function editMatch(id) {
     const finished = m.status === 'finished';
     openModal({
         title: '编辑比赛',
-        hint: `#${m.id} · ${m.team1_name} vs ${m.team2_name} · ${m.tournament_name}`,
+        hint: `#${m.id} ${m.team1_name} vs ${m.team2_name}（${m.tournament_name}）`,
         body: `<div class="ops-form-grid">
             ${field('状态', select('status', Object.entries(STATUS_LABELS), m.status), { hint: '标记为已结算前需先录入赛果' })}
             ${field('赛制', finished ? `<input value="${esc(m.format)}" disabled><input type="hidden" name="format" value="${esc(m.format)}">` : select('format', [['BO1', 'BO1'], ['BO3', 'BO3'], ['BO5', 'BO5']], m.format), { hint: finished ? '已结算比赛不能修改赛制' : '' })}
@@ -872,7 +872,7 @@ function setResult(id) {
     const chips = legalScores(m.format).map(([a, b]) => `<button type="button" class="ops-chip" data-score="${a}:${b}">${a} : ${b}</button>`).join('');
     openModal({
         title: '录入赛果',
-        hint: `${m.format} · 录入后自动结算预测积分，并锁定赛果不被同步覆盖`,
+        hint: `${m.format} 赛制，录入后自动结算预测积分，并锁定赛果不被同步覆盖`,
         body: `<div class="ops-score-form">
             <div class="ops-score-team">${esc(m.team1_name)}</div>
             <input name="team1_score" type="number" min="0" max="3" inputmode="numeric" value="${m.team1_score ?? ''}" required aria-label="${esc(m.team1_name)} 比分">
@@ -973,7 +973,7 @@ function editTournament(id) {
     const t = requireRow(state.tournaments, id, '赛事');
     openModal({
         title: '编辑赛事',
-        hint: `#${t.id} · ${t.match_count || 0} 场比赛 · ${sourceLabel(t)}`,
+        hint: `#${t.id} 共 ${t.match_count || 0} 场比赛，来源：${sourceLabel(t)}`,
         body: tournamentForm(t),
         async onSubmit(data) {
             if (!data.name.trim()) throw new Error('赛事名称不能为空');
@@ -1089,7 +1089,7 @@ function editTeam(id) {
     openModal({
         title: '编辑队伍',
         // 服务端按 COALESCE 更新：留空表示保留原值，而不是清空
-        hint: `#${t.id} · ${sourceLabel(t)} · 留空的字段保持原值`,
+        hint: `#${t.id} 来源：${sourceLabel(t)}，留空的字段保持原值`,
         body: teamForm(t),
         async onSubmit(data) {
             await api(`/admin/teams/${t.id}`, { method: 'PUT', body: data });
@@ -1150,7 +1150,7 @@ function resetPassword(id) {
     const u = requireRow(state.users, id, '用户');
     openModal({
         title: '重置密码',
-        hint: `用户：${u.username} · 重置后该用户的已登录会话全部失效`,
+        hint: `用户 ${u.username} 重置后，其已登录会话将全部失效`,
         body: field('新密码', input('password', '', 'type="password" required autocomplete="new-password"'), { hint: '至少 6 位' }),
         submitText: '重置',
         async onSubmit(data) {

@@ -99,7 +99,7 @@ function renderPagination(data) {
     if (totalPages <= 1) { el.innerHTML = ''; return; }
     el.innerHTML = `
         <button ${data.page <= 1 ? 'disabled' : ''} onclick="goPage(${data.page - 1})">上一页</button>
-        <span>第 ${data.page} / ${totalPages} 页 · 共 ${data.total} 人</span>
+        <span>第 ${data.page} / ${totalPages} 页，共 ${data.total} 人</span>
         <button ${data.page >= totalPages ? 'disabled' : ''} onclick="goPage(${data.page + 1})">下一页</button>
     `;
 }

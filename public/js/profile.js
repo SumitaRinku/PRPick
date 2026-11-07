@@ -198,7 +198,7 @@ function renderHero() {
             const state = outcome(p);
             const team1 = p.team1_short_name || p.team1_name;
             const team2 = p.team2_short_name || p.team2_name;
-            return `<i class="pc-dot ${state}" title="${escapeHtml(`${team1} vs ${team2} · ${OUTCOME_LABEL[state]}`)}"></i>`;
+            return `<i class="pc-dot ${state}" title="${escapeHtml(`${team1} vs ${team2}：${OUTCOME_LABEL[state]}`)}"></i>`;
         }).join('')
         : '<em>暂无已结算预测</em>';
     heroEl.innerHTML = `

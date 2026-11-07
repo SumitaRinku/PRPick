@@ -9,7 +9,13 @@ const at = (day, time) => day + minutes(time) * 60000;
 const label = ms => new Date(ms + OFFSET).toISOString().slice(5, 16).replace('T', ' ').replace('-', '/');
 const clean = value => String(value || '').replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
 const gameLabel = game => game === 'cs2' ? 'CS2' : 'Valorant';
-const title = m => `${gameLabel(m.game_type)} · ${clean(m.tournament_short_name || m.tournament_name)}`;
+const tournamentName = m => clean(m.tournament_short_name || m.tournament_name);
+// Text headings name the game after the tournament: "IEM Cologne（CS2）".
+const title = m => `${tournamentName(m)}（${gameLabel(m.game_type)}）`;
+// Image headings show the tournament logo beside its name. Only admin uploads (/uploads/) are passed on;
+// the report page resolves the site's curated logos from the full name (public/js/tournament-logos.js).
+const brand = m => ({ name: tournamentName(m), fullName: clean(m.tournament_name), game: m.game_type,
+    logo: typeof m.tournament_logo_url === 'string' && /^\/uploads\//.test(m.tournament_logo_url) ? m.tournament_logo_url.slice(0, 500) : '' });
 const versus = m => `${clean(m.team1_name)} vs ${clean(m.team2_name)}`;
 const fingerprint = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 20);
 const snapshot = m => ({ id: m.id, match_time: m.match_time, team1_name: m.team1_name,
@@ -56,7 +62,7 @@ function splitMessage(text, max = 1200) {
 // Match only IDs present in the trusted payload and visibly identified in this exact message part.
 function messageMatchId(text, matchIds = []) {
     const allowed = new Set(matchIds.map(String));
-    const found = new Set([...String(text).matchAll(/(?:^#|^【[^\n】]*· #|^竞猜已(?:提交|修改)：#|^已取消 #)([1-9]\d{0,14})(?=\s|】|$)/gm)]
+    const found = new Set([...String(text).matchAll(/(?:^#|^竞猜已(?:提交|修改)：#|^已取消 #)([1-9]\d{0,14})(?=\s|$)/gm)]
         .map(match => match[1]));
     return found.size === 1 && allowed.has([...found][0]) ? Number([...found][0]) : null;
 }
@@ -66,7 +72,7 @@ function splitMatchMessage(text, matchIds = []) {
     return splitMessage(text).map((text, index) => {
         const content = text.replace(/^（\d+\/\d+）\n/, '');
         // A continuation can contain the tail of another match before its first visible ID.
-        const startsMatch = /^(?:#[1-9]\d*\s|【[^\n】]*· #[1-9]\d*】)/.test(content);
+        const startsMatch = /^(?:#[1-9]\d*\s|【[^\n】]*】\n#[1-9]\d*\s)/.test(content);
         return { text, matchId: index && multiple && !startsMatch ? null : messageMatchId(text, matchIds) };
     });
 }
@@ -74,10 +80,15 @@ function splitMatchMessage(text, matchIds = []) {
 function fixtureLine(m, now, reportDay, stakes = {}) {
     const time = Date.parse(m.match_time);
     const nextDay = reportDay !== undefined && midnight(time) > reportDay;
-    const status = m.status === 'finished' ? ' · 已结束' : m.status === 'ongoing' ? ' · 进行中'
-        : time <= now ? ' · 已过计划时间' : '';
-    const round = [stakes.label, stakes.pool].filter(Boolean).join(' · ');
-    return `#${m.id} ${nextDay ? '次日 ' : ''}${label(time)}  ${versus(m)} · ${m.format}${round ? ` · ${round}` : ''}${status}`;
+    const status = m.status === 'finished' ? '，已结束' : m.status === 'ongoing' ? '，进行中'
+        : time <= now ? '，已过计划时间' : '';
+    const details = [m.format, roundText(stakes)].filter(Boolean).join(' ');
+    return `#${m.id} ${nextDay ? '次日 ' : ''}${label(time)}  ${versus(m)}（${details}）${status}`;
+}
+
+// "瑞士轮第2轮（1-0组）": the Swiss pool reads as a note on its round.
+function roundText(stakes) {
+    return stakes.label && stakes.pool ? `${stakes.label}（${stakes.pool}）` : stakes.label || stakes.pool || '';
 }
 
 // Structured twin of fixtureLine / result lines, used to draw the image version of a report.
@@ -87,23 +98,26 @@ function fixtureRow(m, now, reportDay, stakes = {}) {
     const status = m.status === 'finished' ? '已结束' : m.status === 'ongoing' ? '进行中' : time <= now ? '已过计划时间' : '';
     // The daily card header already carries the date, so rows show HH:mm (次日 for after-midnight).
     const when = reportDay === undefined ? label(time) : `${nextDay ? '次日 ' : ''}${label(time).slice(6)}`;
-    const round = [stakes.label, stakes.pool].filter(Boolean).join(' · ');
-    return { t: 'row', id: m.id, time: when, ...teams(m), mid: 'vs', meta: [m.format, status].filter(Boolean).join(' · '), round, win: 0 };
+    // format / status are drawn as separate pieces; meta is the plain-text form for the basic renderer.
+    return { t: 'row', id: m.id, time: when, ...teams(m), mid: 'vs', format: m.format, status,
+        meta: [m.format, status].filter(Boolean).join(' '), round: roundText(stakes), win: 0 };
 }
 
 function resultRow(m, stakes = {}) {
     const win = m.team1_score > m.team2_score ? 1 : m.team2_score > m.team1_score ? 2 : 0;
     const tag = side => !win || !stakes.win ? null : side === win ? { text: stakes.win, tone: stakes.winTone || 'up' } : { text: stakes.lose, tone: stakes.tone || 'out' };
     return { t: 'row', id: m.id, time: '', ...teams(m), mid: `${m.team1_score}:${m.team2_score}`,
-        meta: m.is_forfeit ? '弃权' : '', round: stakes.label || '', atag: tag(1), btag: tag(2), win };
+        status: m.is_forfeit ? '弃权' : '', meta: m.is_forfeit ? '弃权' : '', round: stakes.label || '', atag: tag(1), btag: tag(2), win };
 }
 
-// Text twin: "#1 A 2:0 B · 胜者组半决赛 · B 落败者组"
+// Text twin: "#1 A 2:0 B（胜者组半决赛）B 落败者组"
 function resultLine(m, stakes = {}) {
     const row = resultRow(m, stakes);
     const tags = [[row.a, row.atag], [row.b, row.btag]].filter(([, tag]) => tag && tag.tone !== 'up' && tag.tone !== 'record').map(([name, tag]) => `${name} ${tag.text}`);
-    const records = stakes.pool && row.atag ? [`${row.a} ${row.atag.text} / ${row.b} ${row.btag.text}`] : [];
-    return [`#${m.id} ${row.a} ${m.team1_score}:${m.team2_score} ${row.b}${m.is_forfeit ? '（弃权）' : ''}`, row.round, ...(records.length ? records : tags)].filter(Boolean).join(' · ');
+    const records = stakes.pool && row.atag ? `战绩 ${row.a} ${row.atag.text}，${row.b} ${row.btag.text}` : '';
+    const notes = [row.round, m.is_forfeit && '弃权'].filter(Boolean).join('，');
+    const outcome = records || tags.join('，');
+    return `#${m.id} ${row.a} ${m.team1_score}:${m.team2_score} ${row.b}${notes ? `（${notes}）` : outcome ? ' ' : ''}${outcome}`;
 }
 
 // Only http(s) or site-relative logo URLs reach the report page (it proxies them through /api/images).
@@ -117,7 +131,7 @@ function roundOf(m) {
     round = round.replace(/\s+match\s+\d+$/i, '');
     if (!/round\s+\d+$/i.test(round)) round = round.replace(/\s+\d+$/, '');
     const stage = clean(m.stage_name).trim();
-    const label = stage && round && stage.toLowerCase() !== round.toLowerCase() ? `${stage} · ${round}` : stage || round || '本阶段';
+    const label = stage && round && stage.toLowerCase() !== round.toLowerCase() ? `${stage} ${roundName(round)}` : stage || roundName(round) || '本阶段';
     return { key: `${m.game_type}:${m.tournament_id}|${stage.toLowerCase()}|${round.toLowerCase()}`, stage, round, label: clean(label) };
 }
 
@@ -240,10 +254,10 @@ function roundJobs(feed, config, now, seen) {
             `#${m.id} ${clean(m.team1_name)} ${m.team1_score}:${m.team2_score} ${clean(m.team2_name)}${m.is_forfeit ? '（弃权）' : ''}`);
         return { key: `round:${fingerprint(list.map(round => round.key).sort())}`, kind: 'round', expires: now + 3 * 3600000,
             matchIds: matches.map(m => m.id), watched: [],
-            text: [`【轮次结束 · ${title(first)}】`, `${labels} 已全部结束`, ...results].join('\n'),
-            summary: `【轮次结束 · ${title(first)}】${labels} 已全部结束，最新赛程图见图`,
+            text: [`【${tournamentName(first)} 轮次结束】`, `${labels}已全部结束`, ...results].join('\n'),
+            summary: `【${tournamentName(first)} 轮次结束】${labels}已全部结束，最新赛程图如下`,
             bracket: { tournamentId: first.tournament_id, theme: first.game_type, matchIds: matches.map(m => m.id),
-                caption: [title(first), `${labels} · 已全部结束`] } };
+                brand: brand(first), caption: [tournamentName(first), `${labels}已全部结束`] } };
     });
 }
 
@@ -251,10 +265,10 @@ function groupItems(matches, row) {
     const groups = new Map();
     for (const m of matches) {
         const key = `${m.game_type}:${m.tournament_id}`;
-        if (!groups.has(key)) groups.set(key, { name: title(m), matches: [] });
+        if (!groups.has(key)) groups.set(key, { brand: brand(m), matches: [] });
         groups.get(key).matches.push(m);
     }
-    return [...groups.values()].flatMap(group => [{ t: 'group', text: group.name }, ...group.matches.map(row)]);
+    return [...groups.values()].flatMap(group => [{ t: 'group', text: group.brand.name, brand: group.brand }, ...group.matches.map(row)]);
 }
 
 function previewItems(matches, start, end, now) {
@@ -265,7 +279,7 @@ function previewItems(matches, start, end, now) {
         if (!groups.has(m.tournament_id)) groups.set(m.tournament_id, []);
         groups.get(m.tournament_id).push(m);
     }
-    return [...groups.values()].flatMap(rows => [{ t: 'group', text: title(rows[0]) },
+    return [...groups.values()].flatMap(rows => [{ t: 'group', text: tournamentName(rows[0]), brand: brand(rows[0]) },
         ...rows.slice(0, 4).map(m => fixtureRow(m, now)),
         ...(rows.length > 4 ? [{ t: 'note', text: `另有 ${rows.length - 4} 场见网站` }] : [])]);
 }
@@ -274,9 +288,11 @@ function weeklyReport(matches, now) {
     const count = matches.filter(m => isFixture(m) && m.status === 'upcoming' && between(m, now, now + 7 * DAY)).length;
     return { text: ['【未来七天赛事预告】', ...previewLines(matches, now, now + 7 * DAY, now)].join('\n'),
         summary: `【未来七天赛事预告】${count ? `共 ${count} 场，赛程见图` : '未来七天暂无赛程'}`,
-        card: { title: '未来七天赛事预告', subtitle: `${label(now).slice(0, 5)} 起 · 北京时间`,
-            items: previewItems(matches, now, now + 7 * DAY, now), footer: `数据以网站为准 · 生成于 ${label(now)}` } };
+        card: { title: '未来七天赛事预告', subtitle: `北京时间 ${label(now).slice(0, 5)} 起`,
+            items: previewItems(matches, now, now + 7 * DAY, now), footer: footer(now) } };
 }
+
+const footer = now => `生成于 ${label(now)}，数据以网站为准`;
 
 function groupedFixtures(matches, now, day, of = () => ({})) {
     const groups = new Map();
@@ -331,14 +347,14 @@ function dailyImages(yesterday, today, config, now, day, of) {
     return [...tournaments.values()]
         .sort((a, b) => (a.today.length ? 0 : 1) - (b.today.length ? 0 : 1) || start(a) - start(b))
         .map(({ first, yesterday: y, today: t }) => {
-            const name = clean(first.tournament_short_name || first.tournament_name);
-            const subtitle = `${gameLabel(first.game_type)} · 赛事日报 · ${dateKey(day)} · 北京时间`;
-            const card = { title: name, subtitle, theme: first.game_type, footer: `数据以网站为准 · 生成于 ${label(now)}`, items: [
+            const name = tournamentName(first);
+            const subtitle = `${dateKey(day)} 赛事日报（北京时间）`;
+            const card = { title: name, brand: brand(first), subtitle, theme: first.game_type, footer: footer(now), items: [
                 ...(y.length ? [{ t: 'section', text: '昨日赛果' }, ...roundItems(y, of, m => m.team1_score !== null && m.team2_score !== null ? resultRow(m) : fixtureRow(m, now, day))] : []),
                 ...(t.length ? [{ t: 'section', text: '今日赛程' }, ...roundItems(t, of, m => fixtureRow(m, now, day))] : [])] };
             const all = [...y, ...t];
             if (config.dailyBrackets === false || !all.every(m => roundOf(m).round)) return { card };
-            return { card, bracket: { tournamentId: first.tournament_id, theme: first.game_type, matchIds: all.map(m => m.id),
+            return { card, bracket: { tournamentId: first.tournament_id, theme: first.game_type, brand: brand(first), matchIds: all.map(m => m.id),
                 yesterday: y.map(m => m.id), today: t.map(m => m.id), caption: [name, subtitle] } };
         });
 }
@@ -352,7 +368,7 @@ function dailyReport(feed, config, now, day = midnight(now)) {
     const pending = yesterday.filter(m => ['upcoming', 'ongoing'].includes(m.status)
         || (m.status === 'finished' && (m.team1_score === null || m.team2_score === null)));
     const stakes = stakesIndex(matches), of = m => stakes.get(m.id) || {};
-    const lines = [`【赛事日报 · ${dateKey(day)}】`, '', '昨日赛果'];
+    const lines = [`【${dateKey(day)} 赛事日报】`, '', '昨日赛果'];
     const resultGroups = new Map();
     for (const m of finished.slice(0, config.resultsLimit)) {
         const key = `${m.game_type}:${m.tournament_id}`;
@@ -390,11 +406,11 @@ function dailyReport(feed, config, now, day = midnight(now)) {
             : [note('今日无比赛，近期赛程：'), ...previewItems(matches, end, now + 7 * DAY, now)]),
         ...(unknown ? [note(`另有 ${unknown} 场时间待定`)] : [])];
     const extra = [pending.length && `${pending.length} 场赛果待更新`, cancelled && `${cancelled} 场取消或延期`, unknown && `${unknown} 场时间待定`].filter(Boolean);
-    const summary = `【赛事日报 · ${dateKey(day)}】昨日 ${finished.length} 场赛果 · 今日 ${today.length} 场比赛${extra.length ? `（${extra.join('，')}）` : ''}，详见图片`;
+    const summary = `【${dateKey(day)} 赛事日报】昨日 ${finished.length} 场赛果，今日 ${today.length} 场比赛${extra.length ? `（${extra.join('，')}）` : ''}，详见图片`;
     const shown = [...finished, ...pending].sort((a, b) => Date.parse(a.match_time) - Date.parse(b.match_time) || a.id - b.id);
     // No match yesterday or today: the single card with the coming days' preview.
     const images = shown.length || today.length ? dailyImages(shown, today, config, now, day, of) : undefined;
-    return { text: lines.join('\n'), summary, images, card: { title: '赛事日报', subtitle: `${dateKey(day)} · 北京时间`, items, footer: `数据以网站为准 · 生成于 ${label(now)}` }, matchIds: matches.map(m => m.id), watched: today.filter(m => Date.parse(m.match_time) > now).map(snapshot) };
+    return { text: lines.join('\n'), summary, images, card: { title: '赛事日报', subtitle: `${dateKey(day)}（北京时间）`, items, footer: footer(now) }, matchIds: matches.map(m => m.id), watched: today.filter(m => Date.parse(m.match_time) > now).map(snapshot) };
 }
 
 function plan(feed, config, now, watched = {}) {
@@ -427,8 +443,9 @@ function plan(feed, config, now, watched = {}) {
             && m.team1_name !== 'TBD' && m.team2_name !== 'TBD') {
             jobs.push({ key: `reminder:${m.id}:${iso(time)}`, kind: 'reminder', expires: time,
                 matchIds: [m.id], watched: [{ ...snapshot(m), reminded_time: m.match_time }], text: [
-                    `【即将开赛 · 约 ${Math.ceil(remaining / 60000)} 分钟后${slipped ? ' · 已顺延' : ''}】`, title(m),
-                    `#${m.id} ${versus(m)} · ${m.format} · ${label(time)}${slipped ? `（原定 ${label(announcedAt)}）` : ''}`,
+                    `【即将开赛】约 ${Math.ceil(remaining / 60000)} 分钟后${slipped ? '，开赛时间已顺延' : ''}`, title(m),
+                    `#${m.id} ${label(time)}  ${versus(m)}（${m.format}）`,
+                    ...(slipped ? [`原定 ${label(announcedAt)} 开赛`] : []),
                     ...(m.betting_enabled ? (config.commandsEnabled ? [
                         `回复比分或发送 /prbet 竞猜 ${m.id} ${m.format === 'BO1' ? '1:0' : m.format === 'BO5' ? '3:1' : '2:1'}`
                     ] : ['可在网站竞猜']) : ['竞猜未开放'])

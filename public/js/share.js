@@ -358,7 +358,7 @@
         text(ctx, match.tournament_name || '赛事', x, top + 26, { weight: 700, size: 42, color: C.text, maxWidth: maxW, minSize: 32 });
         const stage = match.name && match.name !== match.tournament_name ? match.name : '';
         const time = formatMatchTime(match.match_time);
-        const sub = [stage, time ? `${time} 开赛` : ''].filter(Boolean).join('  ·  ');
+        const sub = stage && time ? `${stage}，${time} 开赛` : stage || (time ? `${time} 开赛` : '');
         text(ctx, sub, x, top + 74, { weight: 500, size: 27, color: C.textDim, maxWidth: maxW, minSize: 22 });
     }
 
@@ -507,7 +507,7 @@
         ctx.stroke();
         if (settledHit) {
             text(ctx, main, 0, -22, { weight: 700, size: 84, color: o.color, align: 'center' });
-            text(ctx, `${o.title} · 积分`, 0, 50, { weight: 700, size: 26, color: o.color, align: 'center', spacing: 2 });
+            text(ctx, `${o.title}得分`, 0, 50, { weight: 700, size: 26, color: o.color, align: 'center', spacing: 2 });
         } else {
             text(ctx, main, 0, -20, { weight: 700, size: main.length > 4 ? 42 : 54, color: o.color, align: 'center', maxWidth: sw - 40, minSize: 34 });
             text(ctx, o.sub, 0, 44, { weight: 500, size: 26, color: withAlpha(o.color, 0.85), align: 'center', spacing: 2 });
@@ -568,7 +568,7 @@
 
         const mid = top + (H - top) / 2;
         text(ctx, '扫码一起来猜', PAD, mid - 30, { weight: 700, size: 44, color: C.text });
-        text(ctx, `CS2 · Valorant 免费赛事竞猜  |  ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
+        text(ctx, `CS2 与 Valorant 免费赛事竞猜，访问 ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
     }
 
     // ---------- 组装 ----------

@@ -41,7 +41,7 @@ function renderSharedUser() {
         if (toggle) el.appendChild(toggle);
         return;
     }
-    el.innerHTML = `<span>${escapeSharedHtml(sharedState.user.username)} · ${escapeSharedHtml(sharedState.user.role)} · ${sharedState.user.total_score || 0}分</span><button onclick="sharedLogout()">退出</button>${sharedState.user.role === 'admin' ? '<a class="button" href="/admin/">管理后台</a>' : ''}`;
+    el.innerHTML = `<span><b>${escapeSharedHtml(sharedState.user.username)}</b><small class="user-role">${escapeSharedHtml(sharedState.user.role)}</small>${sharedState.user.total_score || 0} 分</span><button onclick="sharedLogout()">退出</button>${sharedState.user.role === 'admin' ? '<a class="button" href="/admin/">管理后台</a>' : ''}`;
     if (toggle) el.appendChild(toggle);
 }
 
@@ -165,7 +165,7 @@ function renderMatchPredictionDetail(match, predictions) {
             </div>
             ${teamBlock('team2', t2Win)}
         </div>
-        <p class="pd-meta">${escapeSharedHtml(match.tournament_name || '')} · ${escapeSharedHtml(match.name || '常规赛程')} · ${formatDateTime(match.match_time)}</p>
+        <p class="pd-meta"><span class="meta-part">${escapeSharedHtml(match.tournament_name || '')}</span><span class="meta-part">${escapeSharedHtml(match.name || '常规赛程')}</span><span class="meta-part">${formatDateTime(match.match_time)}</span></p>
         ${match.is_forfeit ? '<p class="pd-forfeit">本场因弃权按 1-0 判定，所有预测均不计入积分。</p>' : ''}
         <div class="pd-stats">
             <span><b>${list.length}</b><small>人参与</small></span>

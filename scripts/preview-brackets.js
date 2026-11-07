@@ -18,14 +18,14 @@ function fixture(name,status='finished',s1=2,s2=1){let id=++sequence;return{id,n
 function edge(from,to,type='winner'){return{source_external_match_id:from.external_id,match_external_id:to.external_id,source_type:type}}
 function add(label,matches,edges,has=1){let official={external_id:'demo',name:label,has_bracket:has,nodes:matches.map(m=>({external_match_id:m.external_id,local_match_id:m.id,name:m.name})),edges};let stage=buildTournamentStagesWithOfficial(matches,[official])[0];document.getElementById('gallery').insertAdjacentHTML('beforeend','<h2>'+escapeHtml(label)+'</h2>'+stageDiagram(stage));}
 const q1=fixture('Quarterfinal 1'),q2=fixture('Quarterfinal 2'),s=fixture('Semifinal 1','ongoing'),f=fixture('Grand final','upcoming');
-add('淘汰赛 · Playoffs',[q1,q2,s,f],[edge(q1,s),edge(q2,s),edge(s,f)]);
+add('淘汰赛 Playoffs',[q1,q2,s,f],[edge(q1,s),edge(q2,s),edge(s,f)]);
 const u1=fixture('Upper bracket round 1 match 1'),u2=fixture('Upper bracket round 1 match 2'),uf=fixture('Upper bracket final'),l1=fixture('Lower bracket round 1','ongoing'),lf=fixture('Lower bracket final','upcoming'),gf=fixture('Grand final','upcoming');
 add('双败淘汰赛',[u1,u2,uf,l1,lf,gf],[edge(u1,uf),edge(u2,uf),edge(u1,l1,'loser'),edge(u2,l1,'loser'),edge(l1,lf),edge(uf,lf,'loser'),edge(uf,gf),edge(lf,gf)]);
 const o1=fixture('Opening 1'),o2=fixture('Opening 2'),w=fixture('Winners match'),e=fixture('Elimination match','ongoing'),d=fixture('Decider match','upcoming');
 add('GSL 小组赛',[o1,o2,w,e,d],[edge(o1,w),edge(o2,w),edge(o1,e,'loser'),edge(o2,e,'loser'),edge(w,d,'loser'),edge(e,d)],0);
 const swiss=[8,8,8,6,3].flatMap((count,r)=>Array.from({length:count},()=>({...fixture('Round '+(r+1)+': TBD vs TBD','upcoming'),team1_name:'TBD',team2_name:'TBD',stage_name:'Swiss Stage'})));
 add('Swiss Stage',swiss,[],0);
-if(!compact)document.querySelector('main').insertAdjacentHTML('beforeend','<h2>手机预览 · 390px</h2><iframe class="preview-mobile" title="手机赛程图" src="/preview?mobile=1"></iframe>');
+if(!compact)document.querySelector('main').insertAdjacentHTML('beforeend','<h2>手机预览（390px）</h2><iframe class="preview-mobile" title="手机赛程图" src="/preview?mobile=1"></iframe>');
 </script></html>`));
 app.get('/', (req, res) => res.redirect('/preview'));
 app.listen(4318, '127.0.0.1', () => console.log('Bracket preview: http://127.0.0.1:4318/preview'));

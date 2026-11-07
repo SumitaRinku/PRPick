@@ -84,8 +84,7 @@ test('reminders include match ID, start time and format-valid command without re
     for (const [format, score] of [['BO1', '1:0'], ['BO3', '2:1'], ['BO5', '3:1']]) {
         const m = match(123, '2026-09-22T12:20:00+08:00', { format, betting_enabled: 1 });
         const reminder = plan(feed([m]), { ...config, commandsEnabled: true }, now).find(job => job.kind === 'reminder');
-        assert.match(reminder.text, /#123 Alpha vs Beta/);
-        assert.match(reminder.text, /BO\d · 09\/22 12:20/);
+        assert.match(reminder.text, /^#123 09\/22 12:20  Alpha vs Beta（BO\d）$/m);
         assert.doesNotMatch(reminder.text, /竞猜截止|北京时间/);
         assert.ok(reminder.text.includes(`/prbet 竞猜 123 ${score}`));
         assert.doesNotMatch(reminder.text, /https?:\/\//);
@@ -113,13 +112,13 @@ test('message-part match identity is unique, payload-backed and does not treat s
     assert.equal(messageMatchId('#1 Alpha vs Beta\n#2 Gamma vs Delta', [1, 2]), null);
     assert.equal(messageMatchId('#1 Alpha vs Beta', [1, 2]), 1);
     assert.equal(messageMatchId('#99 not in payload', [1]), null);
-    assert.equal(messageMatchId('alice：2:1 · +2 分', [1]), null);
-    assert.equal(messageMatchId('【比赛结算 · #1】\nAlpha 2:1 Beta', [1]), 1);
+    assert.equal(messageMatchId('alice 猜 2:1，猜中胜者，+2 分', [1]), null);
+    assert.equal(messageMatchId('【比赛结算】\n#1 Test Cup\nAlpha 2:1 Beta', [1]), 1);
     assert.equal(messageMatchId('（2/3）\n#2 Gamma vs Delta', [1, 2]), 2);
     assert.equal(messageMatchId('#99 unexpected\n#1 actual', [1]), null);
-    const parts = splitMatchMessage('#1 A vs B\n' + '玩家：2:1 · +2 分\n'.repeat(90) + '#2 C vs D\n', [1, 2]);
+    const parts = splitMatchMessage('#1 A vs B\n' + '玩家 猜 2:1，猜中胜者，+2 分\n'.repeat(90) + '#2 C vs D\n', [1, 2]);
     const continued = parts.find(part => part.text.includes('#2 C vs D'));
-    assert.ok(continued.text.includes('玩家：'));
+    assert.ok(continued.text.includes('玩家 猜'));
     assert.equal(continued.matchId, null, 'continuation of match 1 plus match 2 is ambiguous');
 });
 
@@ -172,8 +171,8 @@ test('overrunning earlier series: slips stay silent, one reminder carries the la
     let jobs = at('2026-09-22T12:15:00+08:00', '2026-09-22T12:40:00+08:00', { 7: announced });
     assert.equal(kinds(jobs, 'change').length, 0);
     const [reminder] = kinds(jobs, 'reminder');
-    assert.match(reminder.text, /已顺延】/);
-    assert.match(reminder.text, /^#7 Alpha vs Beta · BO3 · 09\/22 12:40（原定 09\/22 12:30）$/m);
+    assert.match(reminder.text, /^【即将开赛】约 \d+ 分钟后，开赛时间已顺延$/m);
+    assert.match(reminder.text, /^#7 09\/22 12:40  Alpha vs Beta（BO3）\n原定 09\/22 12:30 开赛$/m);
     assert.equal(messageMatchId(reminder.text, reminder.matchIds), 7);
     const reminded = { 7: { ...announced, ...reminder.watched[0] } };
     // 12:40 → 13:00 after the reminder: nothing at all.
@@ -224,8 +223,8 @@ test('results say who advanced, dropped to the lower bracket or was eliminated',
     const at = Date.parse('2026-11-03T12:00:00+08:00');
     const report = dailyReport(feed([...swiss.slice(0, 4), ...playoff].map(x => ({ ...x, tournament_name: 'Cup', time_confirmed: 1, format: 'BO3' })), at),
         config, at);
-    assert.match(report.text, /#10 T1 2:1 T3 · 胜者组半决赛 · T3 落败者组/);
-    assert.match(report.text, /#4 T2 0:2 T4 · 瑞士轮第2轮 · T2 0-2 \/ T4 1-1/);
+    assert.match(report.text, /#10 T1 2:1 T3（胜者组半决赛）T3 落败者组/);
+    assert.match(report.text, /#4 T2 0:2 T4（瑞士轮第2轮）战绩 T2 0-2，T4 1-1/);
     // Image: one per tournament; Swiss stage and playoffs share it. The list fallback names each round once, no tags.
     assert.equal(report.images.length, 1);
     const [{ bracket, card }] = report.images;
@@ -242,7 +241,7 @@ test('round names normalise to one round per stage', () => {
     assert.equal(key('Lower bracket round 1 match 1: A vs B').key, key('Lower bracket round 1 match 2: C vs D').key);
     assert.notEqual(key('Round 1: A vs B', 'Group Stage').key, key('Round 2: A vs B', 'Group Stage').key);
     assert.notEqual(key('Round 1: A vs B', 'Stage 1 Swiss').key, key('Round 1: A vs B', 'Stage 2 Swiss').key);
-    assert.equal(key('Upper bracket quarterfinal 2: A vs B').label, 'Playoffs · Upper bracket quarterfinal');
+    assert.equal(key('Upper bracket quarterfinal 2: A vs B').label, 'Playoffs 胜者组四分之一决赛');
     assert.equal(key('Round 2: A vs B', 'Round 2').label, 'Round 2');
     assert.equal(key('EACE vs MASQ', 'Regular Season').round, '');
 });
@@ -261,7 +260,7 @@ test('finished rounds are posted once on the observed transition, bundled per st
     assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'upcoming'), lb('ongoing'), league('upcoming')]), config, at, fresh).length, 0);
     const jobs = roundJobs(feed([qf(1, 'finished'), qf(2, 'finished'), lb('finished'), league('finished')]), config, at, fresh);
     assert.equal(jobs.length, 1, 'UB QF and LB R1 of one stage share one image; leagues are never tracked');
-    assert.match(jobs[0].summary, /Playoffs · Upper bracket quarterfinal、Playoffs · Lower bracket round 1 已全部结束/);
+    assert.match(jobs[0].summary, /Playoffs 胜者组四分之一决赛、Playoffs 败者组第1轮已全部结束/);
     assert.deepEqual(jobs[0].bracket.matchIds.sort(), [1, 2, 9]);
     assert.match(jobs[0].text, /#1 Alpha 2:1 Beta/);
     assert.equal(roundJobs(feed([qf(1, 'finished'), qf(2, 'finished'), lb('finished')]), config, at, fresh).length, 0, 'no repeat');
@@ -290,7 +289,7 @@ test('worker posts a finished round to every group with one shared bracket image
         assert.equal(specs.length, 1);
         assert.equal(specs[0].bracket.tournamentId, 1);
         assert.deepEqual(sent.map(item => item.group), ['123456', '123457']);
-        assert.ok(sent.every(item => item.image && /^【轮次结束 · CS2 · Test Cup】Playoffs · Semifinal 已全部结束/.test(item.text)));
+        assert.ok(sent.every(item => item.image && /^【Test Cup 轮次结束】Playoffs 半决赛已全部结束/.test(item.text)));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -340,7 +339,7 @@ test('image reports: one render shared by groups, summary + image in one message
             ['Major', 'valorant', [2], []]);
         assert.equal(sent.length, 2);
         for (const item of sent) {
-            assert.match(item.text, /^【赛事日报 · 2026-09-22】.*今日 2 场比赛/);
+            assert.match(item.text, /^【2026-09-22 赛事日报】.*今日 2 场比赛/);
             assert.equal(item.image.length, 2);
             assert.ok(item.image.every(image => fs.existsSync(image)));
         }
@@ -439,9 +438,9 @@ test('bot API authenticates, returns over 200 fixtures, filters disabled and ret
     db.exec(`CREATE TABLE matches(id INTEGER PRIMARY KEY, tournament_id INTEGER, name TEXT, match_time TEXT, status TEXT,
         format TEXT, stage_name TEXT, betting_enabled INTEGER, is_forfeit INTEGER, team1_id INTEGER,
         team2_id INTEGER, team1_score INTEGER, team2_score INTEGER, winner_team_id INTEGER, external_source TEXT, last_synced_at TEXT);
-        CREATE TABLE tournaments(id INTEGER PRIMARY KEY, name TEXT, short_name TEXT, game_type TEXT, is_active INTEGER);
+        CREATE TABLE tournaments(id INTEGER PRIMARY KEY, name TEXT, short_name TEXT, game_type TEXT, is_active INTEGER, logo_url TEXT);
         CREATE TABLE teams(id INTEGER PRIMARY KEY, name TEXT, logo_url TEXT, dark_logo_url TEXT);
-        INSERT INTO tournaments VALUES(1, 'Cup', NULL, 'cs2', 1), (2, 'Disabled', NULL, 'cs2', 0);
+        INSERT INTO tournaments VALUES(1, 'Cup', NULL, 'cs2', 1, NULL), (2, 'Disabled', NULL, 'cs2', 0, NULL);
         INSERT INTO teams VALUES(1, 'Alpha', 'https://cdn.test/a.png', NULL), (2, 'Beta', NULL, NULL);`);
     ensureBotSchema(db); ensureBotSchema(db);
     const insert = db.prepare(`INSERT INTO matches(id,tournament_id,match_time,team1_id,team2_id,status) VALUES(?,?,?,1,2,'upcoming')`);

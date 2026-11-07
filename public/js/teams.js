@@ -129,7 +129,7 @@ function teamMatchRow(match, teamId) {
     const opponentLogo = teamLogo(isTeam1 ? match.team2_logo_url : match.team1_logo_url, isTeam1 ? match.team2_dark_logo_url : match.team1_dark_logo_url);
     return `<article class="th-match">
         <span class="th-tag ${result.className}">${result.label}</span>
-        <span class="th-match-opp">${opponentLogo}<span><strong>${teamEscape(opponent)}</strong><small>${teamEscape(match.tournament_name)}${match.stage_name ? ` · ${teamEscape(match.stage_name)}` : ''}</small></span></span>
+        <span class="th-match-opp">${opponentLogo}<span><strong>${teamEscape(opponent)}</strong><small><span class="meta-part">${teamEscape(match.tournament_name)}</span>${match.stage_name ? `<span class="meta-part">${teamEscape(match.stage_name)}</span>` : ''}</small></span></span>
         <span class="th-score">${match.status === 'finished' ? `<b class="${result.className}">${own}</b><em>:</em><b>${other}</b>` : 'VS'}</span>
         <time>${typeof formatDateTime === 'function' ? formatDateTime(match.match_time) : teamEscape(match.match_time)}</time>
     </article>`;
@@ -149,7 +149,7 @@ function tournamentHistoryRow(row) {
     return `<article class="th-history">
         <span class="th-history-main">
             <strong title="${teamEscape(row.tournament_name)}">${teamEscape(row.tournament_name)}</strong>
-            <small>${teamGameName(row.game_type)} · ${row.finished_count || 0}/${row.match_count || 0} 场完成</small>
+            <small>${teamGameName(row.game_type)} 已完成 ${row.finished_count || 0}/${row.match_count || 0} 场</small>
         </span>
         <span class="th-history-record"><b>${row.win_count || 0}</b> - ${row.loss_count || 0}<small>${rate}%</small></span>
         <b class="th-placement ${placementClass(row.placement)}">${teamEscape(row.placement)}</b>
@@ -176,7 +176,7 @@ function nextMatchBlock(matches, teamId) {
     const logo = teamLogo(isTeam1 ? next.team2_logo_url : next.team1_logo_url, isTeam1 ? next.team2_dark_logo_url : next.team1_dark_logo_url);
     return `<a class="th-next" href="/teams.html?team=${opponentId}" title="查看 ${teamEscape(opponentFull)}">
         <span class="th-next-label"><i class="th-live-dot"></i>${next.status === 'ongoing' ? '正在进行' : '下一场比赛'}</span>
-        <span class="th-next-opp">${logo}<span><strong>${teamEscape(opponent)}</strong><small>${teamEscape(next.tournament_name)}${next.stage_name ? ` · ${teamEscape(next.stage_name)}` : ''}</small></span></span>
+        <span class="th-next-opp">${logo}<span><strong>${teamEscape(opponent)}</strong><small><span class="meta-part">${teamEscape(next.tournament_name)}</span>${next.stage_name ? `<span class="meta-part">${teamEscape(next.stage_name)}</span>` : ''}</small></span></span>
         <span class="th-next-time"><b>${next.format || 'BO?'}</b>${typeof formatDateTime === 'function' ? formatDateTime(next.match_time) : teamEscape(next.match_time)}</span>
     </a>`;
 }

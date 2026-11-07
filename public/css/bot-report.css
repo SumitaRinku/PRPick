@@ -5,7 +5,10 @@ body.bot-report-page { margin: 0; background: var(--surface-input); min-height: 
 .br-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px 16px; background: var(--br-head, #202b38); border-bottom: 4px solid var(--br-accent, #5a8fc1); }
 .br-head h1 { margin: 0; color: #f5f7fa; font-size: 28px; font-weight: 700; line-height: 1.15; }
 .br-head p { margin: 4px 0 0; color: #bac5d2; font-size: 14px; font-weight: 500; }
-.br-head img { height: 34px; width: auto; flex: none; }
+.br-head > img { height: 34px; width: auto; flex: none; }
+/* Tournament logo beside the title, on a light tile so dark logos stay visible on the dark header. */
+.br-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.br-title .br-mark { width: 52px; height: 52px; flex: none; box-sizing: border-box; padding: 6px; border-radius: 4px; background: #fff; object-fit: contain; }
 
 /* Game themes: CS2 blue, Valorant red (same colours as the bracket images). */
 .bot-report[data-theme="cs2"] { --br-head: #16263a; --br-accent: #3d8bd9; --br-time: #2f6fb0; }
@@ -20,6 +23,7 @@ body.bot-report-page { margin: 0; background: var(--surface-input); min-height: 
 .br-group-name { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--surface-3); border-bottom: 1px solid var(--border-soft); color: var(--text-heading); font-size: 14px; font-weight: 700; }
 .br-game { padding: 1px 6px; border-radius: 2px; background: var(--surface-5); color: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .br-game.valorant { background: #f0dfe2; color: #b94653; }
+.br-group-name .br-mark { width: 22px; height: 22px; flex: none; object-fit: contain; }
 
 .br-row { display: grid; grid-template-columns: 66px 90px minmax(0, 1fr) 56px minmax(0, 1fr) 112px; align-items: center; min-height: 44px; padding: 0 12px; border-bottom: 1px solid var(--border-soft); background: var(--surface-input); }
 .br-row:last-child { border-bottom: 0; }
@@ -38,13 +42,15 @@ body.bot-report-page { margin: 0; background: var(--surface-input); min-height: 
 .br-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 0; color: var(--text-secondary); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .br-meta > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .br-meta small { color: var(--text-heading); font-size: 12px; font-weight: 700; }
-.br-meta small + span { font-size: 11px; }
+.br-info { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; }
+.br-meta > small + .br-info { margin-top: 1px; }
+.br-state { padding: 0 4px; border-radius: 2px; background: var(--surface-5); color: var(--text-secondary); font-style: normal; font-weight: 700; line-height: 16px; }
+.br-state.live { background: #f8e1e3; color: #c8323f; }
 .br-tag { flex: none; padding: 1px 5px; border-radius: 2px; font-size: 11px; font-style: normal; font-weight: 700; line-height: 16px; white-space: nowrap; }
 .br-tag.up { background: #e1f1e6; color: #2f7d4a; }
 .br-tag.drop { background: #fbefd9; color: #a8661a; }
 .br-tag.out { background: #f8e1e3; color: #c8323f; }
 .br-tag.record { background: var(--surface-5); color: var(--text-secondary); }
-.br-meta.live { color: #c8323f; }
 
 .br-note { margin: 8px 2px 0; color: var(--text-secondary); font-size: 13px; font-weight: 500; }
 .br-foot { padding: 10px 24px 12px; background: var(--surface-3); border-top: 1px solid var(--border-soft); color: var(--text-secondary); font-size: 12px; }

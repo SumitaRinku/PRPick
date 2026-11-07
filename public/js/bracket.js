@@ -60,7 +60,7 @@ function stageMetrics(matches) {
 
 function stageSubtitle(matches) {
     const metrics = stageMetrics(matches);
-    return `${metrics.total} 场比赛 · ${metrics.finished} 场已结算 · ${metrics.predictions} 人次预测`;
+    return `共 ${metrics.total} 场比赛，已结算 ${metrics.finished} 场，${metrics.predictions} 人次预测`;
 }
 
 function stageMatches(item) {
@@ -485,7 +485,7 @@ function swissMatchNodeClean(match) {
     const outcome = bracketGraphEngine.result(match);
     const scored = outcome.finished && outcome.scores.every(score => score !== null);
     const score = scored ? `${outcome.scores[0]}:${outcome.scores[1]}` : 'vs';
-    const button = `<button type="button" class="${classes}"${match.id && !match.__placeholder ? ` data-match-id="${Number(match.id)}"` : ''} ${attrs} aria-label="${escapeHtml(`${live ? '进行中 · ' : ''}${match.team1_name || 'TBD'} ${score} ${match.team2_name || 'TBD'}`)}" title="${escapeHtml(match.name || 'Swiss match')}">
+    const button = `<button type="button" class="${classes}"${match.id && !match.__placeholder ? ` data-match-id="${Number(match.id)}"` : ''} ${attrs} aria-label="${escapeHtml(`${live ? '进行中：' : ''}${match.team1_name || 'TBD'} ${score} ${match.team2_name || 'TBD'}`)}" title="${escapeHtml(match.name || 'Swiss match')}">
         ${badge}
         ${swissMatchLogo(match, 1)}
         <span class="sw2-vs${scored ? ' scored' : ''}">${score}</span>

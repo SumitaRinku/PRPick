@@ -29,7 +29,7 @@ function createBotRouter(db, getToken = () => process.env.BOT_FEED_TOKEN || '') 
                 m.status, m.format, m.stage_name, m.betting_enabled, m.is_forfeit,
                 m.team1_id, m.team2_id, m.team1_score, m.team2_score, m.winner_team_id,
                 m.external_source, m.last_synced_at,
-                t.name tournament_name, t.short_name tournament_short_name, t.game_type,
+                t.name tournament_name, t.short_name tournament_short_name, t.game_type, t.logo_url tournament_logo_url,
                 a.name team1_name, b.name team2_name,
                 a.logo_url team1_logo_url, a.dark_logo_url team1_dark_logo_url,
                 b.logo_url team2_logo_url, b.dark_logo_url team2_dark_logo_url

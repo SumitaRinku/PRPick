@@ -6,6 +6,22 @@
     const logoUrl = url => !url ? '' : /^\/(?!\/)/.test(url) || url.startsWith('data:') ? url : `/api/images/team-logo?url=${encodeURIComponent(url)}`;
     const logo = url => url ? `<img src="${escape(logoUrl(url))}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'br-logo-empty'}))">` : '<i class="br-logo-empty"></i>';
 
+    const GAMES = { cs2: 'CS2', valorant: 'Valorant' };
+    const gameChip = game => GAMES[game] ? `<span class="br-game ${game === 'valorant' ? 'valorant' : ''}">${GAMES[game]}</span>` : '';
+    // Tournament logo: admin upload first, then the site's curated mapping (tournament-logos.js).
+    const brandLogo = brand => brand.logo || (typeof window.tournamentLogoUrl === 'function' ? window.tournamentLogoUrl(brand.fullName || brand.name, brand.game) : '');
+    // A logo that fails to load falls back to the game chip in group headings and disappears in the header.
+    window.__brandLogoFailed = image => {
+        const chip = image.dataset.fallback ? gameChip(image.dataset.fallback) : '';
+        if (chip) image.insertAdjacentHTML('beforebegin', chip);
+        image.remove();
+    };
+    const brandMark = (brand, fallback) => {
+        const src = brand && brandLogo(brand);
+        if (!src) return fallback ? gameChip(brand && brand.game) : '';
+        return `<img class="br-mark" src="${escape(src)}" alt="" referrerpolicy="no-referrer"${fallback ? ` data-fallback="${escape(brand.game)}"` : ''} onerror="__brandLogoFailed(this)">`;
+    };
+
     function team(item, side) {
         const win = Number(item.win) || 0;
         const state = !win ? '' : win === side ? ' win' : ' lose';
@@ -26,15 +42,20 @@
             ${team(item, 1)}
             <span class="br-mid${scored ? ' score' : ''}">${escape(item.mid)}</span>
             ${team(item, 2)}
-            <span class="br-meta${/进行中/.test(item.meta || '') ? ' live' : ''}">${item.round ? `<small>${escape(item.round)}</small>` : ''}${item.meta ? `<span>${escape(item.meta)}</span>` : ''}</span>
+            <span class="br-meta">${item.round ? `<small>${escape(item.round)}</small>` : ''}${meta(item)}</span>
         </div>`;
     }
 
-    function groupName(text) {
-        const [game, ...rest] = String(text).split(' · ');
-        return rest.length
-            ? `<span class="br-game ${game === 'Valorant' ? 'valorant' : ''}">${escape(game)}</span>${escape(rest.join(' · '))}`
-            : escape(text);
+    // Format and status sit side by side as separate pieces; the status gets its own colour.
+    function meta(item) {
+        const parts = [item.format && `<span>${escape(item.format)}</span>`,
+            item.status && `<em class="br-state${item.status === '进行中' ? ' live' : ''}">${escape(item.status)}</em>`].filter(Boolean);
+        return parts.length ? `<span class="br-info">${parts.join('')}</span>` : '';
+    }
+
+    // Tournament groups: logo + name (game chip only when there is no logo); stage groups: plain text.
+    function groupName(item) {
+        return item.brand ? `${brandMark(item.brand, true)}<span>${escape(item.brand.name)}</span>` : escape(item.text);
     }
 
     function body(items) {
@@ -48,7 +69,7 @@
             }
             close();
             if (item.t === 'section') html += `<div class="br-section">${escape(item.text)}</div>`;
-            else if (item.t === 'group') { html += `<div class="br-group"><div class="br-group-name">${groupName(item.text)}</div>`; open = true; }
+            else if (item.t === 'group') { html += `<div class="br-group"><div class="br-group-name">${groupName(item)}</div>`; open = true; }
             else if (item.t === 'note') html += `<p class="br-note">${escape(item.text)}</p>`;
         }
         close();
@@ -64,7 +85,7 @@
         const root = document.getElementById('report');
         root.dataset.theme = /^(cs2|valorant)$/.test(card.theme || '') ? card.theme : '';
         root.innerHTML = `<header class="br-head">
-                <div><h1>${escape(card.title)}</h1><p>${escape(card.subtitle)}</p></div>
+                <div class="br-title">${brandMark(card.brand, false)}<div><h1>${escape(card.title)}</h1><p>${escape(card.subtitle)}</p></div></div>
                 <img src="/images/prbetlogo-light.png" alt="PRBET">
             </header>
             <div class="br-body">${body(card.items)}</div>

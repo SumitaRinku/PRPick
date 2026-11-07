@@ -92,7 +92,7 @@
             node.classList.toggle('is-column-collapsed', collapsed);
             if (node.matches('.pb2-title')) {
                 node.setAttribute('aria-expanded', String(!collapsed));
-                node.title = `${collapsed ? '展开' : '折叠'}本列 · ${node.textContent}`;
+                node.title = `${collapsed ? '展开' : '折叠'}本列：${node.textContent}`;
             }
         }
         const width = project(state.width);
@@ -114,7 +114,7 @@
                 header.setAttribute('role', 'button');
                 header.tabIndex = 0;
                 header.setAttribute('aria-expanded', 'true');
-                header.title = `折叠本列 · ${header.textContent}`;
+                header.title = `折叠本列：${header.textContent}`;
             }
             const onScroll = () => schedule(view);
             scrollHandlers.set(viewport, onScroll);

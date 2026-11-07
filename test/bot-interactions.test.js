@@ -120,7 +120,7 @@ test('schedule combines game, Beijing calendar-day and stable pagination filters
         const { ids } = queryFixtures(db);
         const first = command('赛程 cs2 明天').text;
         assert.deepEqual(ids(first), Array.from({ length: 15 }, (_, i) => 100 + i));
-        assert.match(first, /第 1\/2 页 · 共 18 场/);
+        assert.match(first, /第 1\/2 页，共 18 场/);
         assert.match(first, /下一页：\/prbet 赛程 cs2 明天 2/);
         assert.deepEqual(ids(command('赛程 明天 CS2 2').text), [115, 116, 1]);
         assert.deepEqual(ids(command('赛程 今天').text), [200]);
@@ -150,7 +150,7 @@ test('my predictions filter game and actual match state without exposing another
         addPrediction.run(3, 200, 1, null);
         const upcoming = command('我的 待开赛 cs2').text;
         assert.deepEqual(ids(upcoming), Array.from({ length: 10 }, (_, i) => 100 + i));
-        assert.match(upcoming, /第 1\/2 页 · 共 18 条/);
+        assert.match(upcoming, /第 1\/2 页，共 18 条/);
         assert.match(upcoming, /下一页：\/prbet 我的 待开赛 cs2 2/);
         assert.deepEqual(ids(command('我的 待开赛 cs2 2').text), [110, 111, 112, 113, 114, 115, 116, 1]);
         assert.deepEqual(ids(command('我的 待结算').text), [402, 401, 400]);
@@ -198,7 +198,7 @@ test('merged settlement digest combines multiple events into one message', () =>
     const event = (id, correction) => ({ id, correction, match: match(id),
         predictions: [{ username: 'alice', predicted_winner_id: 1, predicted_team1_score: 2, predicted_team2_score: 1, points_earned: 7, delta: correction ? -2 : 0 }] });
     const text = mergedSettlementText([event(1), event(2), event(3, true)]);
-    assert.match(text, /赛果更正与结算 · 共 3 场/);
+    assert.match(text, /^【赛果更正与结算】本次共 3 场$/m);
     for (const id of [1, 2, 3]) assert.match(text, new RegExp(`#${id} IEM Dallas`));
     assert.match(text, /比分全中/);
     assert.match(text, /较上次 -2/);

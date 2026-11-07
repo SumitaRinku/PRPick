@@ -78,13 +78,16 @@ function predictionOutcome(p, m) {
 const pointsText = (p, event) => event.correction
     ? `${p.points_earned} 分（较上次 ${p.delta >= 0 ? '+' : ''}${p.delta}）` : `+${p.points_earned} 分`;
 
+// "alice 猜 2:1，比分全中，+2 分"
+const predictionLine = (p, m, event) => `${String(p.username).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160)} 猜 ${p.predicted_team1_score}:${p.predicted_team2_score}，${predictionOutcome(p, m)}，${pointsText(p, event)}`;
+
 function settlementText(event) {
     const m = event.match;
     const clean = s => String(s).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
-    const lines = [`【${event.correction ? '赛果更正' : '比赛结算'} · #${m.id}】`, clean(m.tournament_name),
+    const lines = [`【${event.correction ? '赛果更正' : '比赛结算'}】`, `#${m.id} ${clean(m.tournament_name)}`,
         `${clean(m.team1_name)} ${m.team1_score}:${m.team2_score} ${clean(m.team2_name)}${m.is_forfeit ? '（弃权，不计分）' : ''}`, ''];
     for (const p of event.predictions) {
-        lines.push(`${clean(p.username)}：${p.predicted_team1_score}:${p.predicted_team2_score} · ${predictionOutcome(p, m)} · ${pointsText(p, event)}`);
+        lines.push(predictionLine(p, m, event));
     }
     if (!event.predictions.length) lines.push('本群无人竞猜');
     return lines.join('\n');
@@ -94,15 +97,14 @@ function settlementText(event) {
 function mergedSettlementText(events) {
     const clean = s => String(s).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
     const hasCorrection = events.some(e => e.correction);
-    const lines = [`【${hasCorrection ? '赛果更正与结算' : '比赛结算'} · 共 ${events.length} 场】`];
+    const lines = [`【${hasCorrection ? '赛果更正与结算' : '比赛结算'}】本次共 ${events.length} 场`];
     for (const event of events) {
         const m = event.match;
         lines.push('', `#${m.id} ${clean(m.tournament_name)}${event.correction ? '（赛果更正）' : ''}`,
             `${clean(m.team1_name)} ${m.team1_score}:${m.team2_score} ${clean(m.team2_name)}${m.is_forfeit ? '（弃权，不计分）' : ''}`);
         if (event.predictions.length) {
-            for (const p of event.predictions)
-                lines.push(`· ${clean(p.username)}：${p.predicted_team1_score}:${p.predicted_team2_score} · ${predictionOutcome(p, m)} · ${pointsText(p, event)}`);
-        } else lines.push('· 本群无人竞猜');
+            for (const p of event.predictions) lines.push(predictionLine(p, m, event));
+        } else lines.push('本群无人竞猜');
     }
     return lines.join('\n');
 }
