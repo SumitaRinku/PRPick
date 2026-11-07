@@ -215,6 +215,25 @@ npm start
 </details>
 
 <details>
+<summary><b>GRID 实时比分（可选，仅 CS2）</b></summary>
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `GRID_API_TOKEN` | — | GRID Open Access API Key；未配置则不启用 |
+| `GRID_LIVE_ENABLED` | `true` | 设 `false` 关闭 |
+| `GRID_LIVE_INTERVAL_MS` | `60000` | 实时比分轮询间隔（≥ 30000） |
+| `GRID_DISCOVERY_INTERVAL_MS` | `300000` | 自动配对间隔（≥ 60000） |
+| `GRID_STATE_BUDGET` | `5` | 每轮最多拉取的 seriesState 数（Open Access 限额 6 次/分钟，上限 6） |
+| `GRID_BASE_URL` | `https://api-op.grid.gg` | API 基址 |
+
+- 按「双方队名 + 开赛时间（±4 小时）」把近期 CS2 比赛自动关联到 GRID series，academy / junior / NXT 等不同阵容不会互配。
+- 首页进行中卡片显示系列赛实时比分与当前地图回合比分，进行中与已结束卡片显示单图比分；有进行中比赛时首页每 60 秒自动刷新。
+- **只用于展示**：赛果、结算与积分仍以 PandaScore / 管理员录入为准。
+- 配错或未配上时可在后台接口处理：`PUT /api/admin/matches/:id/grid-link`（`{ "series_id": "..." }`）、`DELETE /api/admin/matches/:id/grid-link?block=1`（解除并屏蔽自动配对）、`POST /api/admin/grid/sync`、`GET /api/admin/grid/status`。
+
+</details>
+
+<details>
 <summary><b>QQ 群机器人</b></summary>
 
 | 变量 | 说明 |

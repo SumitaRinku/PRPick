@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../config/database');
 const { TIER_SQL } = require('../services/tournamentTier');
 const { getPreviewDays } = require('../services/settings');
+const { attachLiveScores } = require('../services/gridLiveService');
 
 const router = express.Router();
 
@@ -128,7 +129,7 @@ router.get('/:id', (req, res) => {
         GROUP BY t.id
     `).get(req.params.id);
     if (!tournament) return res.status(404).json({ error: '赛事不存在' });
-    res.json({ tournament, matches: matchRows(tournament.id) });
+    res.json({ tournament, matches: attachLiveScores(matchRows(tournament.id)) });
 });
 
 // 官方赛程图数据：阶段 + 节点 + 父子边。节点来自 PandaScore /tournaments/{id}/brackets，

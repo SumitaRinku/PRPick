@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { ensureDatabase } = require('./config/init-db');
 const { startPandascoreSyncService } = require('./services/pandascoreService');
+const { startGridLiveService } = require('./services/gridLiveService');
 const { errorLogger } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/requestLogger');
 
@@ -113,6 +114,7 @@ app.use(errorLogger);
 app.listen(PORT, HOST, () => {
     console.log(`PRG CS2 Bet running at http://${HOST}:${PORT} (trust proxy: ${TRUST_PROXY})`);
     startPandascoreSyncService();
+    startGridLiveService();
 });
 
 module.exports = app;

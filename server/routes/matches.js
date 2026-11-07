@@ -3,6 +3,7 @@ const db = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { isValidScore, possibleScores } = require('../utils/scoring');
 const { recordPredictionHistory } = require('../utils/predictionHistory');
+const { attachLiveScores } = require('../services/gridLiveService');
 
 const router = express.Router();
 const HOME_FINISHED_DAYS = 1;
@@ -82,6 +83,7 @@ router.get('/', optionalAuth, (req, res) => {
 
     const matches = db.prepare(`${matchSelect(where)} ORDER BY m.match_time ASC LIMIT 200`).all(...params);
     attachConsensus(matches);
+    attachLiveScores(matches);
     if (req.user) {
         const predictions = db.prepare('SELECT * FROM predictions WHERE user_id = ?').all(req.user.id);
         const map = new Map(predictions.map(prediction => [prediction.match_id, prediction]));
@@ -176,6 +178,7 @@ router.get('/upcoming', optionalAuth, (req, res) => {
             : (match.status === 'ongoing' || new Date(match.match_time) <= new Date() ? 'ongoing' : 'upcoming');
     }
     attachConsensus(matches);
+    attachLiveScores(matches);
     if (req.user) {
         const predictions = db.prepare('SELECT * FROM predictions WHERE user_id = ?').all(req.user.id);
         const map = new Map(predictions.map(prediction => [prediction.match_id, prediction]));
@@ -197,6 +200,7 @@ router.get('/:id', optionalAuth, (req, res) => {
     const match = db.prepare(matchSelect('m.id = ? AND tour.is_active = 1')).get(req.params.id);
     if (!match) return res.status(404).json({ error: '比赛不存在' });
     match.possible_scores = possibleScores(match.format);
+    attachLiveScores([match]);
     if (req.user) match.user_prediction = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(req.user.id, match.id) || null;
     res.json({ match });
 });
@@ -216,6 +220,7 @@ router.get('/:id/predictions', (req, res) => {
         ORDER BY COALESCE(p.points_earned, 0) DESC, p.created_at ASC
     `).all(match.id);
 
+    attachLiveScores([match]);
     res.json({ match, predictions });
 });
 

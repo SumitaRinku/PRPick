@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { syncPandascoreMatches, syncTournamentPreviews, syncStatus } = require('../services/pandascoreService');
+const { runGridLiveTick, gridLiveStatus, linkMatchToSeries, unlinkMatch, getLink } = require('../services/gridLiveService');
 const { PREVIEW_DAYS, setSetting } = require('../services/settings');
 const { TIER_SQL } = require('../services/tournamentTier');
 const { isValidScore } = require('../utils/scoring');
@@ -111,6 +112,38 @@ router.post('/sync/pandascore', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// ===== GRID 实时比分（仅展示，不参与结算） =====
+router.get('/grid/status', (req, res) => res.json({ grid: gridLiveStatus() }));
+
+// 立即执行一轮：强制重新配对 + 轮询进行中比赛
+router.post('/grid/sync', async (req, res) => {
+    try {
+        res.json({ result: await runGridLiveTick('manual', { forceDiscovery: true }), grid: gridLiveStatus() });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/matches/:id/grid-link', (req, res) => res.json({ link: getLink(Number(req.params.id)) }));
+
+// 手动指定 GRID series（自动配对失败或配错时使用）
+router.put('/matches/:id/grid-link', async (req, res) => {
+    const seriesId = String(req.body?.series_id || '').trim();
+    if (!/^\d+$/.test(seriesId)) return res.status(400).json({ error: 'series_id 需为 GRID series 数字 ID' });
+    try {
+        res.json({ link: await linkMatchToSeries(Number(req.params.id), seriesId) });
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.message });
+    }
+});
+
+// 解除关联；?block=1 同时屏蔽自动配对
+router.delete('/matches/:id/grid-link', (req, res) => {
+    const block = req.query.block === '1' || req.query.block === 'true';
+    if (!db.prepare('SELECT 1 FROM matches WHERE id = ?').get(req.params.id)) return res.status(404).json({ error: '比赛不存在' });
+    res.json({ link: unlinkMatch(Number(req.params.id), { block }) });
 });
 
 router.get('/users', (req, res) => {
