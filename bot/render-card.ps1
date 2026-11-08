@@ -70,7 +70,7 @@ try {
     Fill $accent 0 ($headerH - 3) $W 3
     Text ([string]$spec.title) (Get-Font 24 $true) '#f5f7fa' $pad 14 ($W - 2 * $pad - 90) 34
     Text ([string]$spec.subtitle) (Get-Font 13) '#bac5d2' $pad 48 ($W - 2 * $pad) 22
-    Text 'PRBET' (Get-Font 14 $true) '#91b9dc' ($W - $pad - 90) 14 90 34 'Far'
+    Text 'PRPICK' (Get-Font 14 $true) '#91b9dc' ($W - $pad - 90) 14 90 34 'Far'
 
     $y = $headerH + 6
     $content = $W - 2 * $pad

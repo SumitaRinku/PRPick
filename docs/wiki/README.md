@@ -1,6 +1,6 @@
-# PRBET Code Wiki
+# PRPICK Code Wiki
 
-> PRBET（prg-cs2-bet-new）· CS2 / Valorant 电竞赛事预测网站 — 代码知识库
+> PRPICK（prg-cs2-bet-new）· CS2 / Valorant 电竞赛事预测网站 — 代码知识库
 
 基于 Express + SQLite 的电竞赛事预测站点：PandaScore 同步近端赛程/赛果与远期赛事预告，支持赛前比分预测、积分结算、排行榜、赛事回看、竞猜分享图，以及 QQ 群赛程/提醒/群内竞猜。
 

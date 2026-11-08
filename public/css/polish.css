@@ -42,7 +42,7 @@ body{background-image:var(--page-glow);background-repeat:no-repeat;background-at
 .hero>*{position:relative}
 .hero nav{background:var(--header-bg);border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06);box-shadow:0 1px 0 rgba(0,0,0,.25)}
 .brand-logo{padding-right:14px;margin-right:2px}
-.brand-logo img{height:26px!important;max-width:140px;transition:filter .2s ease}
+.brand-logo img{height:26px!important;max-width:150px;transition:filter .2s ease}
 .brand-logo:hover img{filter:brightness(1.12) drop-shadow(0 0 10px rgba(61,143,214,.35))}
 .site-nav a{position:relative;letter-spacing:.02em;color:#c3cfdc}
 .site-nav a:hover{background:rgba(61,130,189,.18);color:#fff}
@@ -162,7 +162,7 @@ html[data-theme=dark] .match-status.match-open,html[data-theme=dark] .match-stat
 
 /* ---------- 页脚 ---------- */
 .site-footer{margin-top:28px;padding:18px 14px 20px;background:linear-gradient(180deg,#202b38,#1a2430);border-top:3px solid var(--accent-line);text-align:center}
-.site-footer::before{content:"PRBET 电竞赛事竞猜，覆盖 CS2 与 Valorant";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
+.site-footer::before{content:"PRPICK 电竞赛事竞猜，覆盖 CS2 与 Valorant";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
 .footer-links a{border-radius:999px;padding:5px 12px;transition:border-color .15s ease,background-color .15s ease,color .15s ease}
 .site-footer .icp-info:empty{display:none}
 

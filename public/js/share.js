@@ -1,7 +1,7 @@
 // 竞猜分享卡 v2：1080×1350（4:5 竖版，适配朋友圈 / QQ 空间 / 微博信息流）canvas 合成。
 //
 // 视觉：沿用站内 HLTV 式深海军蓝扁平皮肤，分享图固定深色（不随站点主题切换），保证传播出去的观感一致。
-//   0-128      顶栏：PRBET 字标 + 游戏 / 赛制标签
+//   0-128      顶栏：PRPICK 字标 + 游戏 / 赛制标签
 //   128-300    赛事信息：赛事 logo + 赛事名 + 阶段 + 开赛时间
 //   300-760    对阵英雄区：双方队标（队伍主色光晕）+ 队名，中央 VS 或实际比分，所选队伍金色描边与「我的选择」角标
 //   780-1060   预测面板：我的预测比分（大号数字）+ 右侧结果印章（完美命中 / 猜中胜者 / 未命中 / 待结算 / 弃权）
@@ -309,7 +309,7 @@
             const w = (brandImg.naturalWidth || brandImg.width) * (h / (brandImg.naturalHeight || brandImg.height));
             ctx.drawImage(brandImg, PAD, cy - h / 2, w, h);
         } else {
-            text(ctx, 'PRBET', PAD, cy, { weight: 700, size: 48, color: C.text });
+            text(ctx, 'PRPICK', PAD, cy, { weight: 700, size: 48, color: C.text });
         }
         let x = W - PAD;
         const format = String(match.format || '').toUpperCase();
@@ -533,7 +533,7 @@
 
         const nameX = ax + r + 22;
         const nameW = text(ctx, user.username || '', nameX, cy - 16, { weight: 700, size: 36, color: C.text, maxWidth: 520 });
-        text(ctx, 'PRBET 竞猜玩家', nameX, cy + 24, { weight: 500, size: 24, color: C.textFaint });
+        text(ctx, 'PRPICK 竞猜玩家', nameX, cy + 24, { weight: 500, size: 24, color: C.textFaint });
         void nameW;
 
         const score = Number(user.total_score) || 0;
@@ -563,7 +563,7 @@
             ctx.drawImage(qrImg, qx, qy, qrSize, qrSize);
             ctx.imageSmoothingEnabled = true;
         } else {
-            text(ctx, 'PRBET', qx + qrSize / 2, qy + qrSize / 2, { weight: 700, size: 26, color: '#182330', align: 'center' });
+            text(ctx, 'PRPICK', qx + qrSize / 2, qy + qrSize / 2, { weight: 700, size: 26, color: '#182330', align: 'center' });
         }
 
         const mid = top + (H - top) / 2;
@@ -628,7 +628,7 @@
             loadTeamLogo(match.team1_dark_logo_url, match.team1_logo_url),
             loadTeamLogo(match.team2_dark_logo_url, match.team2_logo_url),
             loadTournamentLogo(match),
-            loadFirst('/images/prbetlogo-light.png', '/images/prbetlogo.png'),
+            loadFirst('/images/prpicklogo-light.png', '/images/prpicklogo.png'),
             skipQr ? Promise.resolve(null) : loadImage(`/api/qrcode?text=${encodeURIComponent(shareTargetUrl(match))}&size=320`)
         ]);
 
@@ -658,7 +658,7 @@
     // ---------- 弹窗 ----------
 
     function fileName() {
-        return `prbet-${currentMatch ? currentMatch.id : 'share'}.png`;
+        return `prpick-${currentMatch ? currentMatch.id : 'share'}.png`;
     }
 
     function flash(modal, message) {
@@ -722,7 +722,7 @@
             if (!currentBlob) return;
             try {
                 const file = new File([currentBlob], fileName(), { type: 'image/png' });
-                await navigator.share({ files: [file], title: 'PRBET 竞猜' });
+                await navigator.share({ files: [file], title: 'PRPICK 竞猜' });
             } catch (e) { /* 用户取消 */ }
         });
         document.addEventListener('keydown', event => {
@@ -775,5 +775,5 @@
     window.sharePrediction = sharePrediction;
     window.closeShareModal = closeShareModal;
     // 供测试 / 调试直接渲染（不弹窗）
-    window.renderPrbetShareCard = renderShareCard;
+    window.renderPrpickShareCard = renderShareCard;
 })();

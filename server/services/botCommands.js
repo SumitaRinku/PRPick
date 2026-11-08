@@ -37,8 +37,8 @@ function queryFilters(action, args, now) {
         else if (action === '我的' && ['待开赛', '待结算', '已结算'].includes(arg) && !filter.status) filter.status = arg;
         else if (/^[1-9]\d{0,3}$/.test(arg) && !hasPage) { filter.page = Number(arg); hasPage = true; }
         else problem(action === '赛程'
-            ? '格式：/prbet 赛程 [cs2/valorant] [今天/明天] [页码]，如 /prbet 赛程 cs2 明天 2'
-            : '格式：/prbet 我的 [待开赛/待结算/已结算] [cs2/valorant] [页码]，如 /prbet 我的 待开赛 cs2 2');
+            ? '格式：/prpick 赛程 [cs2/valorant] [今天/明天] [页码]，如 /prpick 赛程 cs2 明天 2'
+            : '格式：/prpick 我的 [待开赛/待结算/已结算] [cs2/valorant] [页码]，如 /prpick 我的 待开赛 cs2 2');
     }
     filter.args = [filter.status, filter.game, filter.day].filter(Boolean).join(' ');
     filter.size = QUERY_PAGE_SIZE[action];
@@ -54,10 +54,10 @@ function queryFilters(action, args, now) {
 function queryPage(db, select, from, where, params, order, action, filter) {
     const total = db.prepare(`SELECT COUNT(*) total ${from} WHERE ${where}`).get(...params).total;
     const pages = Math.max(1, Math.ceil(total / filter.size));
-    if (total && filter.page > pages) problem(`共 ${pages} 页，请发送 /prbet ${action}${filter.args ? ` ${filter.args}` : ''} ${pages}`);
+    if (total && filter.page > pages) problem(`共 ${pages} 页，请发送 /prpick ${action}${filter.args ? ` ${filter.args}` : ''} ${pages}`);
     const rows = db.prepare(`SELECT ${select} ${from} WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`)
         .all(...params, filter.size, (filter.page - 1) * filter.size);
-    const next = filter.page < pages ? `\n下一页：/prbet ${action}${filter.args ? ` ${filter.args}` : ''} ${filter.page + 1}` : '';
+    const next = filter.page < pages ? `\n下一页：/prpick ${action}${filter.args ? ` ${filter.args}` : ''} ${filter.page + 1}` : '';
     return { rows, footer: `\n\n第 ${filter.page}/${pages} 页，共 ${total} ${action === '赛程' ? '场' : '条'}${next}` };
 }
 
@@ -145,7 +145,7 @@ function runCommand(db, input, options = {}) {
 
     function execute(action, args) {
         if (action === '帮助') return [
-            'PRBET 指令（均以 /prbet 开头）',
+            'PRPICK 指令（均以 /prpick 开头）',
             '',
             '▶ 账号',
             '绑定 绑定码 —— 绑定网站账号（个人中心→账号设置 生成）',
@@ -186,7 +186,7 @@ function runCommand(db, input, options = {}) {
             return '已解除绑定';
         }
         if (action === '加入') {
-            if (!binding) problem('请先在网站生成绑定码，并发送 /prbet 绑定 绑定码');
+            if (!binding) problem('请先在网站生成绑定码，并发送 /prpick 绑定 绑定码');
             db.prepare('INSERT OR IGNORE INTO bot_group_members VALUES(?,?,?)').run(group, qq, now);
             return '已加入本群竞猜';
         }
@@ -235,7 +235,7 @@ function runCommand(db, input, options = {}) {
             settlement.settleMatch(m.id); settlement.recalculateUserScores();
             return `#${m.id} 已${action}：${m.team1_name} ${a}:${b} ${m.team2_name}${action === '弃权' ? '（弃权不计分）' : ''}`;
         }
-        if (!binding || !db.prepare('SELECT 1 FROM bot_group_members WHERE group_id=? AND qq_id=?').get(group, qq)) problem('请先绑定账号并 /prbet 加入 本群竞猜');
+        if (!binding || !db.prepare('SELECT 1 FROM bot_group_members WHERE group_id=? AND qq_id=?').get(group, qq)) problem('请先绑定账号并 /prpick 加入 本群竞猜');
         if (action === '我的') {
             const filter = queryFilters(action, args, now);
             const from = `FROM predictions p JOIN matches m ON m.id=p.match_id JOIN tournaments t ON t.id=m.tournament_id
@@ -263,12 +263,12 @@ function runCommand(db, input, options = {}) {
         }
         if (['竞猜', '修改'].includes(action)) {
             const score = /^(\d):([0-9])$/.exec(args[1] || '');
-            if (!score) problem('格式：/prbet 竞猜 比赛ID 2:1');
+            if (!score) problem('格式：/prpick 竞猜 比赛ID 2:1');
             const text = predict(db, binding.user_id, args[0], Number(score[1]), Number(score[2]), now);
             matchIds = [Number(args[0])];
             return text;
         }
-        return `未知指令「${action}」，发送 /prbet 帮助 查看全部用法`;
+        return `未知指令「${action}」，发送 /prpick 帮助 查看全部用法`;
     }
 }
 

@@ -113,7 +113,7 @@ function fetchImage(url, redirects = 0) {
             const client = parsed.protocol === 'https:' ? https : http;
             const options = {
                 headers: {
-                    'User-Agent': 'PRBET/1.0 team-logo-proxy',
+                    'User-Agent': 'PRPICK/1.0 team-logo-proxy',
                     Accept: 'image/*'
                 },
                 timeout: TIMEOUT_MS,

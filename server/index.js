@@ -112,7 +112,7 @@ app.get('*', serveHtml('index.html'));
 app.use(errorLogger);
 
 app.listen(PORT, HOST, () => {
-    console.log(`PRG CS2 Bet running at http://${HOST}:${PORT} (trust proxy: ${TRUST_PROXY})`);
+    console.log(`PRPICK running at http://${HOST}:${PORT} (trust proxy: ${TRUST_PROXY})`);
     startPandascoreSyncService();
     startGridLiveService();
 });

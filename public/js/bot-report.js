@@ -86,7 +86,7 @@
         root.dataset.theme = /^(cs2|valorant)$/.test(card.theme || '') ? card.theme : '';
         root.innerHTML = `<header class="br-head">
                 <div class="br-title">${brandMark(card.brand, false)}<div><h1>${escape(card.title)}</h1><p>${escape(card.subtitle)}</p></div></div>
-                <img src="/images/prbetlogo-light.png" alt="PRBET">
+                <img src="/images/prpicklogo-light.png" alt="PRPICK">
             </header>
             <div class="br-body">${body(card.items)}</div>
             <footer class="br-foot">${escape(card.footer)}</footer>`;

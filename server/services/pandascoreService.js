@@ -653,7 +653,7 @@ function upsertMatch(match, now, stageCache = null) {
     const stage = stageFromMatch(match);
     upsertTournamentStage(tournamentId, stage, now, stageCache);
 
-    // 任一方未定则用 TBD 占位；此类比赛强制关闭下注。
+    // 任一方未定则用 TBD 占位；此类比赛强制关闭竞猜。
     const team1IsTbd = !team1;
     const team2IsTbd = !team2;
     const hasTbd = team1IsTbd || team2IsTbd;
@@ -677,8 +677,8 @@ function upsertMatch(match, now, stageCache = null) {
     const externalId = `${gameType}:${match.id}`;
     const existingRef = findOrUpgradeExternalId('matches', externalId, gameType, now);
     const existing = existingRef ? db.prepare('SELECT * FROM matches WHERE id = ?').get(existingRef.id) : null;
-    // TBD 比赛一律不可下注；确定的比赛沿用原有开关逻辑。
-    const canBet = tournamentActive && !hasTbd;
+    // TBD 比赛一律不可竞猜；确定的比赛沿用原有开关逻辑。
+    const canPredict = tournamentActive && !hasTbd;
 
     if (existing) {
         // 管理员经 /result、/forfeit 锁定的赛果是最终结果：同步只补齐 stage 元数据，
@@ -690,7 +690,7 @@ function upsertMatch(match, now, stageCache = null) {
             return { id: existing.id, finished: false, settle: false };
         }
         const wasFinished = existing.status === 'finished';
-        // 判断该比赛「此前是否为 TBD 占位」：只因对阵未定而被强制关闭下注的比赛，
+        // 判断该比赛「此前是否为 TBD 占位」：只因对阵未定而被强制关闭竞猜的比赛，
         // 一旦对阵确定应自动重新开放，而不是沿用那个被迫的 0。
         const wasTbd = !!db.prepare("SELECT 1 FROM teams WHERE id IN (?, ?) AND name = 'TBD' LIMIT 1")
             .get(existing.team1_id, existing.team2_id);
@@ -703,10 +703,10 @@ function upsertMatch(match, now, stageCache = null) {
                 .run(existing.id);
         }
         let bettingEnabled;
-        if (!canBet || effectiveStatus !== 'upcoming') {
+        if (!canPredict || effectiveStatus !== 'upcoming') {
             bettingEnabled = 0; // TBD、赛事非活跃或已开赛/结束：一律关闭
         } else if (wasTbd) {
-            bettingEnabled = 1; // 从 TBD 转为确定对阵：重新开放下注
+            bettingEnabled = 1; // 从 TBD 转为确定对阵：重新开放竞猜
         } else {
             bettingEnabled = existing.betting_enabled; // 常规确定比赛：沿用现值，尊重管理员手动开关
         }
@@ -723,7 +723,7 @@ function upsertMatch(match, now, stageCache = null) {
     const inserted = db.prepare(`
         INSERT INTO matches (tournament_id, team1_id, team2_id, name, format, match_time, status, is_forfeit, raw_status, stage_name, stage_slug, stage_external_id, team1_score, team2_score, winner_team_id, betting_enabled, external_source, external_id, last_synced_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(tournamentId, team1Id, team2Id, match.name || null, format, matchTime, effectiveStatus, isForfeit ? 1 : 0, match.status || null, stage.name, stage.slug, stage.external_id, team1Score, team2Score, winnerId, canBet && effectiveStatus === 'upcoming' ? 1 : 0, SOURCE, externalId, now);
+    `).run(tournamentId, team1Id, team2Id, match.name || null, format, matchTime, effectiveStatus, isForfeit ? 1 : 0, match.status || null, stage.name, stage.slug, stage.external_id, team1Score, team2Score, winnerId, canPredict && effectiveStatus === 'upcoming' ? 1 : 0, SOURCE, externalId, now);
     db.prepare('UPDATE matches SET time_confirmed = ? WHERE id = ?').run(sourceTime ? 1 : 0, inserted.lastInsertRowid);
     return { id: inserted.lastInsertRowid, finished: effectiveStatus === 'finished', settle: effectiveStatus === 'finished' };
 }

@@ -242,7 +242,7 @@ const ISOLATE_STAGE = `async (spec, colors) => {
     if (highlighted) for (const view of views) view.classList.add('brx-dim');
     const head = document.createElement('div');
     head.className = 'brx-head brx-band';
-    head.innerHTML = '<div class="brx-title"><div class="brx-text"><b></b><small></small></div></div><img src="/images/prbetlogo-light.png" alt="">';
+    head.innerHTML = '<div class="brx-title"><div class="brx-text"><b></b><small></small></div></div><img src="/images/prpicklogo-light.png" alt="">';
     head.querySelector('b').textContent = spec.caption[0] || '';
     head.querySelector('small').textContent = spec.caption[1] || '';
     // Tournament logo beside its name: admin upload first, then the site's curated mapping.

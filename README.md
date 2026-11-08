@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="public/images/prbetlogo-light.png">
-  <img src="public/images/prbetlogo.png" alt="PRBET" width="320">
+  <source media="(prefers-color-scheme: dark)" srcset="public/images/prpicklogo-light.png">
+  <img src="public/images/prpicklogo.png" alt="PRPICK" width="320">
 </picture>
 
 ### CS2 / Valorant 电竞赛事竞猜平台
@@ -40,7 +40,7 @@
 
 ## 简介
 
-PRBET 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点。比赛数据通过 [PandaScore](https://pandascore.co) REST API 自动同步，用户在开赛前预测胜者与比分，赛果出炉后自动结算积分并更新排行榜。
+PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点。比赛数据通过 [PandaScore](https://pandascore.co) REST API 自动同步，用户在开赛前预测胜者与比分，赛果出炉后自动结算积分并更新排行榜。
 
 - **零构建**：前端为原生 HTML / CSS / JavaScript，改完刷新即生效
 - **单文件数据库**：Express + better-sqlite3，部署只需 Node 和一个 SQLite 文件
@@ -314,7 +314,7 @@ location / {
 
 - 📅 **每日赛程 / 昨日赛果 / 周报**：用系统自带的 Edge 渲染成与网站同风格的图片，失败时退回 GDI+ 卡片或纯文字
 - ⏰ **临赛提醒**：开赛前提醒；前场拖时导致的顺延会合并进提醒，不刷屏
-- 🗳️ **群内竞猜**：绑定网站账号后直接在群里下注、查询，结算结果自动推送
+- 🗳️ **群内竞猜**：绑定网站账号后直接在群里竞猜、查询，结算结果自动推送
 - 🔁 **自动重启**：`start.ps1` 限制内存占用，进程崩溃后自动拉起
 
 👉 [NapCat 配置与运行教程](bot/README.md) · [群竞猜启用与指令说明](bot/COMMANDS.md)
