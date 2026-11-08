@@ -145,8 +145,8 @@ flowchart LR
 **前置要求**：Node.js ≥ 20，以及一个 [PandaScore API Token](https://dashboard.pandascore.co)。
 
 ```bash
-git clone https://github.com/SumitaRinku/prbet-cs2-vlr.git
-cd prbet-cs2-vlr
+git clone https://github.com/SumitaRinku/PRPick.git
+cd PRPick
 npm install
 
 # 在根目录创建 .env，至少填写 PANDASCORE_API_TOKEN
