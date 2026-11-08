@@ -423,13 +423,20 @@ test('OneBot send uses text segments and verifies retcode and message_id', async
         assert.equal(req.body.group_id, '123456');
         assert.deepEqual(req.body.message, [{ type: 'text', data: { text: '[CQ:at,qq=all]' } }]);
         res.json(mode === 'ok' ? { status: 'ok', retcode: 0, data: { message_id: 42 } }
-            : mode === 'failed' ? { status: 'failed', retcode: 100 } : { status: 'ok', retcode: 0 });
+            : mode === 'failed' ? { status: 'failed', retcode: 100 }
+            : mode === 'timeout' ? { status: 'failed', retcode: 200, message: 'Timeout: NTEvent serviceAndMethod:NodeIKernelMsgService/sendMsg ListenerName:NodeIKernelMsgListener/onMsgInfoListUpdate EventRet:\n{}' }
+            : { status: 'ok', retcode: 0 });
     });
     await serve(app, async napcatUrl => {
         const cfg = { napcatUrl, napcatToken: 'test-token' };
         assert.deepEqual(await sendMessage(cfg, '123456', '[CQ:at,qq=all]'), { status: 'sent', messageId: '42' });
         mode = 'failed'; assert.equal((await sendMessage(cfg, '123456', '[CQ:at,qq=all]')).status, 'failed');
         mode = 'incomplete'; assert.equal((await sendMessage(cfg, '123456', '[CQ:at,qq=all]')).status, 'unknown');
+        // NapCat's own timeout waiting for QQ may still have delivered the message: never resend it.
+        mode = 'timeout';
+        const timedOut = await sendMessage(cfg, '123456', '[CQ:at,qq=all]');
+        assert.equal(timedOut.status, 'unknown');
+        assert.match(timedOut.error, /retcode=200/);
     });
 });
 

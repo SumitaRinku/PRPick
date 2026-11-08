@@ -132,7 +132,16 @@ async function sendMessage(config, groupId, text, image) {
     if (data.status === 'ok' && data.retcode === 0 && data.data?.message_id != null) {
         return { status: 'sent', messageId: String(data.data.message_id) };
     }
-    if (data.status === 'failed') return { status: 'failed', error: `NapCat 拒绝发送，retcode=${Number(data.retcode)}` };
+    if (data.status === 'failed') {
+        const detail = `${data.message || ''} ${data.wording || ''}`.replace(/\s+/g, ' ').trim().slice(0, 120);
+        // NapCat reports its own wait for QQ's send confirmation timing out (retcode 200,
+        // "Timeout: NTEvent ... sendMsg") as a failure, but QQ often delivers the message anyway,
+        // especially large image reports. Resending or falling back to text would duplicate it.
+        if (/timeout/i.test(detail)) {
+            return { status: 'unknown', error: `NapCat 等待 QQ 回执超时，消息可能已发出；请核对群消息（retcode=${Number(data.retcode)}）` };
+        }
+        return { status: 'failed', error: `NapCat 拒绝发送，retcode=${Number(data.retcode)}${detail ? `：${detail}` : ''}` };
+    }
     return { status: 'unknown', error: 'NapCat 未返回明确成功回执' };
 }
 
