@@ -52,25 +52,39 @@ function createBotRouter(db, getToken = () => process.env.BOT_FEED_TOKEN || '') 
         try { res.json(runCommand(db, req.body)); }
         catch (error) { if (error.expected) res.status(400).json({ error: error.message }); else next(error); }
     });
-    router.get('/settlements', (req, res) => {
-        const group = String(req.query.group_id || '');
-        if (!policy().groups.includes(group)) return res.status(403).json({ error: '本群未启用竞猜功能' });
-        const latest = db.prepare('SELECT COALESCE(MAX(id),0) id FROM bot_settlement_events').get().id;
-        if (req.query.after === undefined) return res.json({ cursor: latest, events: [] });
-        if (!/^\d{1,15}$/.test(String(req.query.after))) return res.status(400).json({ error: 'Invalid cursor' });
-        const after = Number(req.query.after);
-        if (after > latest) return res.status(409).json({ error: '结算游标超过服务器记录，请检查是否恢复了旧数据库' });
-        const events = db.prepare('SELECT * FROM bot_settlement_events WHERE id>? ORDER BY id LIMIT 50').all(after);
-        const members = db.prepare(`SELECT b.user_id,g.joined_at FROM bot_group_members g
-            JOIN bot_bindings b ON b.qq_id=g.qq_id WHERE g.group_id=?`).all(group);
-        const selected = events.map(event => {
-            const payload = JSON.parse(event.payload);
-            const permitted = new Set(members.filter(m => m.joined_at <= event.created_at).map(m => m.user_id));
-            payload.predictions = payload.predictions.filter(p => permitted.has(p.user_id));
-            return { id: event.id, ...payload };
-        });
-        res.json({ cursor: events.length ? events[events.length - 1].id : after, events: selected });
-    });
+    // Cursor feed shared by settlements and map results. Without `after` it returns the
+    // current cursor as a baseline, so a newly enabled group never replays history.
+    // Predictions are limited to members who had joined the group when the event happened.
+    function eventFeed(table, label, build) {
+        return (req, res) => {
+            const group = String(req.query.group_id || '');
+            if (!policy().groups.includes(group)) return res.status(403).json({ error: '本群未启用竞猜功能' });
+            const latest = db.prepare(`SELECT COALESCE(MAX(id),0) id FROM ${table}`).get().id;
+            if (req.query.after === undefined) return res.json({ cursor: latest, events: [] });
+            if (!/^\d{1,15}$/.test(String(req.query.after))) return res.status(400).json({ error: 'Invalid cursor' });
+            const after = Number(req.query.after);
+            if (after > latest) return res.status(409).json({ error: `${label}游标超过服务器记录，请检查是否恢复了旧数据库` });
+            const events = db.prepare(`SELECT * FROM ${table} WHERE id>? ORDER BY id LIMIT 50`).all(after);
+            const members = db.prepare(`SELECT b.user_id,g.joined_at FROM bot_group_members g
+                JOIN bot_bindings b ON b.qq_id=g.qq_id WHERE g.group_id=?`).all(group);
+            const selected = events.map(event => {
+                const permitted = new Set(members.filter(m => m.joined_at <= event.created_at).map(m => m.user_id));
+                return { id: event.id, ...build(JSON.parse(event.payload), permitted) };
+            });
+            res.json({ cursor: events.length ? events[events.length - 1].id : after, events: selected });
+        };
+    }
+    router.get('/settlements', eventFeed('bot_settlement_events', '结算', (payload, permitted) => {
+        payload.predictions = payload.predictions.filter(p => permitted.has(p.user_id));
+        return payload;
+    }));
+    // Predictions are locked once a match starts, so reading them now matches what was submitted.
+    router.get('/maps', eventFeed('bot_map_events', '单图', (payload, permitted) => {
+        payload.predictions = db.prepare(`SELECT p.user_id, u.username, p.predicted_team1_score, p.predicted_team2_score
+            FROM predictions p JOIN users u ON u.id=p.user_id WHERE p.match_id=? ORDER BY p.user_id`)
+            .all(payload.match.id).filter(p => permitted.has(p.user_id));
+        return payload;
+    }));
     return router;
 }
 

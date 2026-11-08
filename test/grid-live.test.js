@@ -254,3 +254,29 @@ test('a newly started match is polled even when live matches already fill the bu
     await service.runGridLiveTick('manual');
     assert.deepEqual(polledIds, ['902', '901']);
 });
+
+test('map results become one bot event each, skipping maps already finished on the first poll', async () => {
+    const game = (seq, map, winner, r1, r2) => ({ sequenceNumber: seq, started: true, finished: !!winner, map: { name: map },
+        // GRID id 51814 = NAVI = local team1; 52389 = PARIVISION = local team2.
+        teams: [{ id: '51814', won: winner === 'navi', score: r1 }, { id: '52389', won: winner === 'pari', score: r2 }] });
+    let state = { ...liveState, games: [game(1, 'mirage', 'navi', 13, 9), game(2, 'dust2', null, 6, 4)] };
+    const { db, service, soon } = fixture({
+        central: () => jsonResponse({ data: { allSeries: { pageInfo: { hasNextPage: false }, edges: [{ node: gridSeries(900, soon, [['52389', 'Parivision'], ['51814', 'Natus Vincere']]) }] } } }),
+        state: () => jsonResponse({ data: { seriesState: state } })
+    });
+    const events = () => db.prepare('SELECT * FROM bot_map_events ORDER BY id').all().map(row => JSON.parse(row.payload));
+
+    await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.equal(events().length, 0, 'map 1 was already over when the match was first polled');
+
+    state = { ...state, games: [game(1, 'mirage', 'navi', 13, 9), game(2, 'dust2', 'pari', 11, 13)] };
+    await service.runGridLiveTick('manual');
+    await service.runGridLiveTick('manual'); // the same state again must not duplicate
+    assert.deepEqual(events().map(e => [e.map.sequence, e.map.name, e.map.team1_rounds, e.map.team2_rounds, e.map.winner]), [[2, 'dust2', 11, 13, 'team2']]);
+    assert.deepEqual(events()[0].series, { team1: 1, team2: 1, wins_needed: 2, decided: false });
+    assert.equal(events()[0].match.team1_name, 'Natus Vincere');
+
+    state = { ...state, finished: true, games: [...state.games, game(3, 'ancient', 'navi', 13, 5)] };
+    await service.runGridLiveTick('manual');
+    assert.deepEqual(events()[1].series, { team1: 2, team2: 1, wins_needed: 2, decided: true });
+});

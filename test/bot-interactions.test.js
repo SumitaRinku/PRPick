@@ -11,7 +11,7 @@ const express = require('express');
 const { issueCode, runCommand } = require('../server/services/botCommands');
 const { createBotRouter } = require('../server/routes/bot');
 const { createBotAccountRouter } = require('../server/routes/botAccount');
-const { parseEvent, verifySignature, settlementText, mergedSettlementText, startInteractions } = require('../bot/interactions');
+const { parseEvent, verifySignature, settlementText, mergedSettlementText, mapResultText, startInteractions } = require('../bot/interactions');
 const { saveState, loadState, tick } = require('../bot/run');
 const { messageMatchId } = require('../bot/core');
 
@@ -508,4 +508,75 @@ test('a long daily report yields to newly received commands between message part
         assert.match(sent[1].text, /竞猜已提交/);
         assert.ok(Object.values(loadState(deliveryFile).jobs).every(job => job.parts.every(part => part.status === 'sent')));
     } finally { if (worker) await worker.close(); fs.rmSync(dir, { recursive: true }); }
+});
+
+const mapEvent = (id, predictions, series = { team1: 1, team2: 1, wins_needed: 2, decided: false }) => ({ id,
+    match: { id: 1, tournament_name: 'Cup', game_type: 'cs2', format: 'BO3', team1_name: 'Alpha', team2_name: 'Beta' },
+    map: { sequence: 2, name: 'de_dust2', team1_rounds: 11, team2_rounds: 13, winner: 'team2' }, series, predictions });
+
+test('map result text shows the map, series score and what each pick can still achieve', () => {
+    const text = mapResultText(mapEvent(1, [
+        { username: 'alice', predicted_team1_score: 2, predicted_team2_score: 1 },
+        { username: 'bob', predicted_team1_score: 2, predicted_team2_score: 0 }]));
+    assert.equal(text, ['【地图结果】#1 Cup', '第 2 图 Dust2：Alpha 11:13 Beta', '大比分 Alpha 1:1 Beta（BO3）', '',
+        'alice 猜 2:1，比分仍有望全中', 'bob 猜 2:0，比分已不可能，胜者仍有机会'].join('\n'));
+    const decided = mapResultText(mapEvent(1, [{ username: 'alice', predicted_team1_score: 2, predicted_team2_score: 1 }],
+        { team1: 0, team2: 2, wins_needed: 2, decided: true }));
+    assert.match(decided, /大比分 Alpha 0:2 Beta/);
+    assert.match(decided, /比赛结束，结算稍后推送$/);
+    assert.doesNotMatch(decided, /alice/);
+});
+
+test('map feed baselines new groups and lists only predictions of members who had joined', async () => {
+    const {db,command,bind} = database();
+    const previous=process.env.BOT_COMMAND_GROUP_IDS;
+    process.env.BOT_COMMAND_GROUP_IDS=`${group},${otherGroup}`;
+    try {
+        bind(); command('竞猜 1 2:1'); bind(3,'456789',otherGroup); command('竞猜 1 0:2','456789',otherGroup);
+        const payload = mapEvent(undefined, undefined); delete payload.id; delete payload.predictions;
+        db.prepare('INSERT INTO bot_map_events(match_id,sequence,payload,created_at) VALUES(1,2,?,?)').run(JSON.stringify(payload), now + 1);
+        const app=express(); app.use('/api/bot',createBotRouter(db,()=> 'test-token'));
+        await serve(app,async base=>{
+            const headers={Authorization:'Bearer test-token'};
+            const baseline=await (await fetch(`${base}/api/bot/maps?group_id=${group}`,{headers})).json();
+            assert.deepEqual(baseline,{cursor:1,events:[]});
+            const page=await (await fetch(`${base}/api/bot/maps?group_id=${group}&after=0`,{headers})).json();
+            assert.equal(page.events[0].map.name,'de_dust2');
+            assert.deepEqual(page.events[0].predictions.map(p=>[p.username,p.predicted_team1_score,p.predicted_team2_score]),[['alice',2,1]]);
+            const other=await (await fetch(`${base}/api/bot/maps?group_id=${otherGroup}&after=0`,{headers})).json();
+            assert.deepEqual(other.events[0].predictions.map(p=>p.username),['bob']);
+            assert.equal((await fetch(`${base}/api/bot/maps?group_id=999999&after=0`,{headers})).status,403);
+            assert.equal((await fetch(`${base}/api/bot/maps?group_id=${group}&after=5`,{headers})).status,409);
+        });
+    } finally {db.close(); if(previous===undefined) delete process.env.BOT_COMMAND_GROUP_IDS; else process.env.BOT_COMMAND_GROUP_IDS=previous;}
+});
+
+test('worker posts map results only for matches the group predicted, unless configured otherwise', async () => {
+    async function run(liveMapResults) {
+        const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prpick-maps-'));
+        const config={commandGroupIds:[group],games:['cs2'],eventSecret:'0123456789abcdef',eventPort:0,liveMapResults};
+        let current=now, worker; const sent=[], paths=[];
+        const pick={username:'alice',predicted_team1_score:2,predicted_team2_score:1};
+        const request=async(c,pathname)=>{
+            paths.push(pathname);
+            if(!pathname.includes('after=')) return {cursor:0,events:[]};
+            if(pathname.startsWith('maps')) return {cursor:2,events:[mapEvent(1,[]),mapEvent(2,[pick])]};
+            return {cursor:0,events:[]};
+        };
+        try {
+            worker=await startInteractions(config,path.join(dir,'state.json'),{saveState,request,now:()=>current,sleep:async()=>{},
+                sendMessage:async(c,g,text)=>{sent.push(text);return {status:'sent',messageId:String(sent.length)};}});
+            await worker.pump(); // baselines
+            for(let i=0;i<3;i++){current+=16000;await worker.pump();}
+            return {sent,paths,state:JSON.parse(fs.readFileSync(path.join(dir,'state.json')))};
+        } finally {if(worker)await worker.close();fs.rmSync(dir,{recursive:true});}
+    }
+    const predicted=await run(undefined);
+    assert.equal(predicted.sent.length,1);
+    assert.match(predicted.sent[0],/alice 猜 2:1，比分仍有望全中/);
+    assert.equal(predicted.state.mapCursors[group],2);
+    assert.equal((await run('all')).sent.length,2);
+    const off=await run('off');
+    assert.equal(off.sent.length,0);
+    assert.ok(!off.paths.some(p=>p.startsWith('maps')));
 });

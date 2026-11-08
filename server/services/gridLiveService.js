@@ -8,6 +8,7 @@
 // 所以每轮只拉少量 seriesState，进行中的比赛优先，其余按上次拉取时间轮转。
 const db = require('../config/database');
 const { pickSeriesForMatch, orientSeriesState } = require('./gridMatching');
+const { captureMapResults } = require('./botMapEvents');
 
 const SOURCE = 'grid';
 const CS2_TITLE_ID = 28;
@@ -250,6 +251,7 @@ function applySeriesState(link, state, now) {
         return 'mismatch';
     }
     const tx = db.transaction(() => {
+        const previousGames = db.prepare('SELECT sequence, status FROM match_games WHERE match_id = ?').all(link.match_id);
         db.prepare(`
             UPDATE match_live_links SET started = ?, finished = ?, team1_score = ?, team2_score = ?, team1_id = ?,
                 veto = ?, state_updated_at = ?, last_polled_at = ?, last_error = NULL
@@ -264,6 +266,9 @@ function applySeriesState(link, state, now) {
         for (const game of oriented.games) {
             insert.run(link.match_id, game.sequence, game.mapName, game.team1Rounds, game.team2Rounds, game.winner, game.status, now);
         }
+        // 刚结束的地图记为群播报事件；关联后的首次轮询只作基线。
+        captureMapResults(db, { matchId: link.match_id, previousGames, games: oriented.games,
+            firstPoll: !link.last_polled_at, seriesFinished: oriented.finished, nowMs: Date.parse(now) });
     });
     tx();
     return 'updated';

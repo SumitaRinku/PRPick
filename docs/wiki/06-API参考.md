@@ -152,6 +152,7 @@ Base URL：`/api`。除上传 logo 外均为 JSON 请求/响应。
 | GET | `/schedule` | query：`from`、`to`（≤10 天）、`ids`（≤500）；返回 `{version, generated_at, matches, sync, unavailable_ids}`；超过 10000 行返回 413 |
 | POST | `/command` | 群内指令 `{request_id, group_id, qq_id, action, args...}`；幂等回执；预期错误 400 |
 | GET | `/settlements` | query：`group_id`、`after`（游标）；仅返回群白名单内、且成员入群时间之后的结算事件；游标超前 409 |
+| GET | `/maps` | 单图结果事件，游标规则同 `/settlements`；`predictions` 为本群已加入成员对该场的竞猜（读取时联查，开赛后已锁定） |
 
 ## /api/bot-account — 用户 QQ 绑定（🔒）
 

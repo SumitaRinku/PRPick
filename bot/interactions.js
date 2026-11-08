@@ -94,6 +94,41 @@ function settlementText(event) {
     return lines.join('\n');
 }
 
+// GRID 地图名形如 "mirage"、"de_dust2"，统一成 "Mirage"、"Dust2"。
+function mapLabel(name) {
+    const base = String(name || '').replace(/^de_/i, '').replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 40);
+    return base ? base[0].toUpperCase() + base.slice(1) : '未知地图';
+}
+
+// 当前大比分下某个竞猜还剩什么希望（比赛未结束时调用）。
+function pickOutlook(p, series) {
+    if (series.team1 <= p.predicted_team1_score && series.team2 <= p.predicted_team2_score) return '比分仍有望全中';
+    return '比分已不可能，胜者仍有机会';
+}
+
+// 【地图结果】#12 IEM Cologne / 第 2 图 Mirage：Alpha 13:9 Beta / 大比分 Alpha 1:1 Beta（BO3）
+function mapResultText(event) {
+    const clean = s => String(s).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
+    const { match: m, map, series } = event;
+    const rounds = Number.isInteger(map.team1_rounds) && Number.isInteger(map.team2_rounds)
+        ? `${map.team1_rounds}:${map.team2_rounds}` : (map.winner === 'team1' ? '胜:负' : '负:胜');
+    const lines = [`【地图结果】#${m.id} ${clean(m.tournament_name)}`,
+        `第 ${map.sequence} 图 ${mapLabel(map.name)}：${clean(m.team1_name)} ${rounds} ${clean(m.team2_name)}`,
+        `大比分 ${clean(m.team1_name)} ${series.team1}:${series.team2} ${clean(m.team2_name)}${m.format ? `（${clean(m.format)}）` : ''}`];
+    // 比赛已分胜负时不逐人点评，稍后的结算消息会给出得分。
+    if (series.decided) lines.push('', '比赛结束，结算稍后推送');
+    else if (event.predictions.length) {
+        lines.push('');
+        for (const p of event.predictions) lines.push(`${clean(p.username)} 猜 ${p.predicted_team1_score}:${p.predicted_team2_score}，${pickOutlook(p, series)}`);
+    }
+    return lines.join('\n');
+}
+
+// "predicted"（默认）：只播本群有人竞猜的比赛；"all"：全部关联比赛；"off"：关闭。
+function mapResultsMode(config) {
+    return ['all', 'off', 'predicted'].includes(config.liveMapResults) ? config.liveMapResults : 'predicted';
+}
+
 // 同一短窗口内的多场结算合并为一条播报，避免逐条刷屏。
 function mergedSettlementText(events) {
     const clean = s => String(s).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
@@ -114,11 +149,14 @@ async function startInteractions(config, file, { saveState, sendMessage, request
     const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { version: 1, inbox: {}, cursors: {}, deliveries: {} };
     if (state.version !== 1 || !state.inbox || !state.cursors || !state.deliveries) throw new Error('群竞猜状态文件无效，请恢复备份');
     if (!state.pendingSettlements || typeof state.pendingSettlements !== 'object') state.pendingSettlements = {};
+    if (!state.mapCursors || typeof state.mapCursors !== 'object') state.mapCursors = {};
     for (const job of Object.values(state.deliveries)) for (const part of job.parts) if (part.status === 'sending') part.status = 'unknown';
     const save = () => saveState(file, state);
     save();
     const hits = new Map();
     const lastPoll = new Map();
+    const lastMapPoll = new Map();
+    let mapsUnavailableUntil = 0; // The website predates /maps: retry occasionally, log once.
     const server = http.createServer(async (req, res) => {
         if (req.method !== 'POST' || req.url !== '/onebot') { res.writeHead(404).end(); return; }
         const chunks = []; let size = 0;
@@ -225,6 +263,37 @@ async function startInteractions(config, file, { saveState, sendMessage, request
         await sleep(3000);
     }
 
+    // Map results share the notification lane with settlements and are queued in feed order,
+    // so a match's map messages always precede its (merge-buffered) settlement.
+    async function pollMapResults() {
+        const mode = mapResultsMode(config);
+        if (mode === 'off' || mapsUnavailableUntil > now()) return;
+        for (const group of config.commandGroupIds) {
+            if ((lastMapPoll.get(group) || 0) > now() - 15000) continue;
+            lastMapPoll.set(group, now());
+            const baseline = state.mapCursors[group] === undefined;
+            try {
+                const page = await request(config, baseline ? `maps?group_id=${group}` : `maps?group_id=${group}&after=${state.mapCursors[group]}`);
+                if (!Number.isSafeInteger(page.cursor) || !Array.isArray(page.events)) throw new Error('单图接口返回格式异常');
+                for (const event of page.events) {
+                    if (!event?.match || !event.map || !event.series || !Array.isArray(event.predictions)) continue;
+                    if (!config.games.includes(event.match.game_type)) continue;
+                    if (mode === 'predicted' && !event.predictions.length) continue;
+                    queue(`map:${group}:${event.id}`, group, mapResultText(event), 'settlement');
+                }
+                state.mapCursors[group] = page.cursor;
+                save(); // Cursor and queued messages persist together.
+            } catch (error) {
+                if (error.status === 404) {
+                    mapsUnavailableUntil = now() + 600000;
+                    console.error('[群竞猜] 网站尚未提供单图结果接口，请先更新服务端');
+                    return;
+                }
+                console.error(`[群竞猜] ${group} 单图结果: ${error.message}`);
+            }
+        }
+    }
+
     function pruneAndSave() {
         for (const [key, command] of Object.entries(state.inbox)) if (command.done && command.createdAt < now() - 86400000) delete state.inbox[key];
         for (const [key, job] of Object.entries(state.deliveries)) if (job.createdAt < now() - 14 * 86400000) delete state.deliveries[key];
@@ -274,6 +343,7 @@ async function startInteractions(config, file, { saveState, sendMessage, request
                 buffer.events.length === 1 ? settlementText(buffer.events[0]) : mergedSettlementText(buffer.events), 'settlement', buffer.events.map(event => event.match.id));
             delete pending[group];
         }
+        await pollMapResults();
         await sendReplies(); // Commands received while polling take precedence too.
         // Only one notification part per pass, then yield back to the main loop.
         const notification = sent < 10 ? nextDelivery('settlement') : null;
@@ -283,4 +353,4 @@ async function startInteractions(config, file, { saveState, sendMessage, request
     return { pump, close: () => new Promise(resolve => server.close(resolve)), server };
 }
 
-module.exports = { verifySignature, parseEvent, settlementText, mergedSettlementText, startInteractions };
+module.exports = { verifySignature, parseEvent, settlementText, mergedSettlementText, mapResultText, startInteractions };

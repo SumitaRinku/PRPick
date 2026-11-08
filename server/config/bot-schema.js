@@ -34,6 +34,10 @@ function ensureBotSchema(db) {
             id INTEGER PRIMARY KEY AUTOINCREMENT, match_id INTEGER NOT NULL,
             payload TEXT NOT NULL, created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS bot_map_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, match_id INTEGER NOT NULL, sequence INTEGER NOT NULL,
+            payload TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(match_id, sequence)
+        );
         CREATE INDEX IF NOT EXISTS idx_bot_receipts_actor_time ON bot_command_receipts(qq_id, created_at);
         CREATE INDEX IF NOT EXISTS idx_bot_receipts_time ON bot_command_receipts(created_at);
     `);
