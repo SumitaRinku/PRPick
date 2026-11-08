@@ -46,8 +46,8 @@ function parseEvent(event, config, now = Date.now(), reminderState, interactionS
     const text = event.message.filter(s => s.type === 'text').map(s => s.data?.text || '').join('').trim();
     if (!/^-?\d{1,20}$/.test(String(event.message_id))) return null;
     const replyPrediction = findReplyMatch(event, reminderState, interactionState);
-    // /prbet is the pre-rename prefix; keep accepting it so existing habits keep working.
-    const match = /^\/(?:prpick|prbet)(?:\s+(.+))?$/is.exec(text);
+    // /pick is the main prefix; /prpick and /prbet are earlier names, still accepted so existing habits keep working.
+    const match = /^\/(?:pick|prpick|prbet)(?:\s+(.+))?$/is.exec(text);
     if (!replyPrediction && !match) return null;
     const command = replyPrediction ? `竞猜 ${replyPrediction.matchId} ${replyPrediction.score}` : (match[1] || '帮助').trim();
     if (command.length > 200 || !/^[1-9]\d{4,15}$/.test(qq)) return null;

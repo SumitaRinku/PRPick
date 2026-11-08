@@ -121,7 +121,7 @@ test('schedule combines game, Beijing calendar-day and stable pagination filters
         const first = command('赛程 cs2 明天').text;
         assert.deepEqual(ids(first), Array.from({ length: 15 }, (_, i) => 100 + i));
         assert.match(first, /第 1\/2 页，共 18 场/);
-        assert.match(first, /下一页：\/prpick 赛程 cs2 明天 2/);
+        assert.match(first, /下一页：\/pick 赛程 cs2 明天 2/);
         assert.deepEqual(ids(command('赛程 明天 CS2 2').text), [115, 116, 1]);
         assert.deepEqual(ids(command('赛程 今天').text), [200]);
         assert.deepEqual(ids(command('赛程 val 明天').text), [300]);
@@ -151,7 +151,7 @@ test('my predictions filter game and actual match state without exposing another
         const upcoming = command('我的 待开赛 cs2').text;
         assert.deepEqual(ids(upcoming), Array.from({ length: 10 }, (_, i) => 100 + i));
         assert.match(upcoming, /第 1\/2 页，共 18 条/);
-        assert.match(upcoming, /下一页：\/prpick 我的 待开赛 cs2 2/);
+        assert.match(upcoming, /下一页：\/pick 我的 待开赛 cs2 2/);
         assert.deepEqual(ids(command('我的 待开赛 cs2 2').text), [110, 111, 112, 113, 114, 115, 116, 1]);
         assert.deepEqual(ids(command('我的 待结算').text), [402, 401, 400]);
         const settled = command('我的 已结算').text;
@@ -241,15 +241,17 @@ test('website account authentication and settlement feed expose only opted-in gr
 });
 
 function event(extra={}) {return {post_type:'message',message_type:'group',group_id:group,user_id:qq,self_id:987654,
-    message_id:10,time:now/1000,message:[{type:'text',data:{text:'/prpick 竞猜 1 2:1'}}],...extra};}
+    message_id:10,time:now/1000,message:[{type:'text',data:{text:'/pick 竞猜 1 2:1'}}],...extra};}
 
 test('event parser ignores non-whitelisted, self, forged raw strings, stale events and verifies HMAC', () => {
     const config={commandGroupIds:[group]};
     assert.equal(parseEvent(event(),config,now).text,'竞猜 1 2:1');
     assert.equal(parseEvent(event({message:[{type:'text',data:{text:'/prbet 竞猜 1 2:1'}}]}),config,now).text,'竞猜 1 2:1');
+    assert.equal(parseEvent(event({message:[{type:'text',data:{text:'/prpick 竞猜 1 2:1'}}]}),config,now).text,'竞猜 1 2:1');
+    assert.equal(parseEvent(event({message:[{type:'text',data:{text:'/picks 竞猜 1 2:1'}}]}),config,now),null);
     assert.equal(parseEvent(event({group_id:otherGroup}),config,now),null);
     assert.equal(parseEvent(event({user_id:987654}),config,now),null);
-    assert.equal(parseEvent(event({message:'[CQ:at] /prpick 结算 1 2:1'}),config,now),null);
+    assert.equal(parseEvent(event({message:'[CQ:at] /pick 结算 1 2:1'}),config,now),null);
     assert.equal(parseEvent(event({time:now/1000-601}),config,now),null);
     const body=Buffer.from(JSON.stringify(event())),secret='0123456789abcdef';
     const signature='sha1='+crypto.createHmac('sha1',secret).update(body).digest('hex');
@@ -328,7 +330,7 @@ test('worker puts the website only in help and durably saves single-match comman
         for (const [index, command] of ['帮助', '竞猜 1 2:1'].entries()) {
             current += 3000;
             const body = JSON.stringify(event({ message_id: 20 + index, time: current / 1000,
-                message: [{ type: 'text', data: { text: `/prpick ${command}` } }] }));
+                message: [{ type: 'text', data: { text: `/pick ${command}` } }] }));
             const response = await fetch(`http://127.0.0.1:${worker.server.address().port}/onebot`, { method: 'POST', body,
                 headers: { 'x-signature': 'sha1=' + crypto.createHmac('sha1', config.eventSecret).update(body).digest('hex') } });
             assert.equal(response.status, 200);
@@ -392,7 +394,7 @@ test('profile binding UI uses authenticated sharedApi and produces the exact bin
     });
     await new Promise(resolve=>setImmediate(resolve));
     await elements.get('botBindingForm').handlers.submit({preventDefault(){}});
-    assert.match(elements.get('botBindingFeedback').textContent,/\/prpick 绑定 ABCD1234/);
+    assert.match(elements.get('botBindingFeedback').textContent,/\/pick 绑定 ABCD1234/);
     assert.equal(calls[1][1].body.qq_id,qq);
     await elements.get('botUnbind').handlers.click();
     assert.equal(elements.get('botBindingFeedback').textContent,'已解绑');

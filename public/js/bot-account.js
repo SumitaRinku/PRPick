@@ -5,7 +5,7 @@
         try {
             const qq = document.getElementById('botBindingQQ').value.trim();
             const result = await sharedApi('/bot-account/code', { method: 'POST', body: { qq_id: qq } });
-            feedback.textContent = `请用 QQ ${qq} 在启用功能的群内发送：/prpick 绑定 ${result.code}（10 分钟有效，仅限此 QQ 使用）`;
+            feedback.textContent = `请用 QQ ${qq} 在启用功能的群内发送：/pick 绑定 ${result.code}（10 分钟有效，仅限此 QQ 使用）`;
         } catch (error) { feedback.textContent = error.message; }
     });
     document.getElementById('botUnbind').addEventListener('click', async () => {

@@ -86,11 +86,11 @@ test('reminders include match ID, start time and format-valid command without re
         const reminder = plan(feed([m]), { ...config, commandsEnabled: true }, now).find(job => job.kind === 'reminder');
         assert.match(reminder.text, /^#123 09\/22 12:20  Alpha vs Beta（BO\d）$/m);
         assert.doesNotMatch(reminder.text, /竞猜截止|北京时间/);
-        assert.ok(reminder.text.includes(`/prpick 竞猜 123 ${score}`));
+        assert.ok(reminder.text.includes(`/pick 竞猜 123 ${score}`));
         assert.doesNotMatch(reminder.text, /https?:\/\//);
         const closed = plan(feed([{ ...m, betting_enabled: 0 }]), { ...config, commandsEnabled: true }, now).find(job => job.kind === 'reminder');
         assert.match(closed.text, /竞猜未开放/);
-        assert.doesNotMatch(closed.text, /\/prpick 竞猜|回复比分/);
+        assert.doesNotMatch(closed.text, /\/pick 竞猜|回复比分/);
     }
 });
 
@@ -133,8 +133,8 @@ test('reminder command instructions appear only in groups with commands enabled'
             });
         const reminders = sent.filter(item => item.text.startsWith('【即将开赛'));
         assert.equal(reminders.length, 2);
-        assert.match(reminders.find(item => item.group === '123456').text, /\/prpick 竞猜 123 2:1/);
-        assert.doesNotMatch(reminders.find(item => item.group === '123457').text, /\/prpick/);
+        assert.match(reminders.find(item => item.group === '123456').text, /\/pick 竞猜 123 2:1/);
+        assert.doesNotMatch(reminders.find(item => item.group === '123457').text, /\/pick/);
         assert.match(reminders.find(item => item.group === '123457').text, /可在网站竞猜/);
     } finally { fs.rmSync(dir, { recursive: true }); }
 });

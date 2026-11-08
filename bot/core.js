@@ -447,7 +447,7 @@ function plan(feed, config, now, watched = {}) {
                     `#${m.id} ${label(time)}  ${versus(m)}（${m.format}）`,
                     ...(slipped ? [`原定 ${label(announcedAt)} 开赛`] : []),
                     ...(m.betting_enabled ? (config.commandsEnabled ? [
-                        `回复比分或发送 /prpick 竞猜 ${m.id} ${m.format === 'BO1' ? '1:0' : m.format === 'BO5' ? '3:1' : '2:1'}`
+                        `回复比分或发送 /pick 竞猜 ${m.id} ${m.format === 'BO1' ? '1:0' : m.format === 'BO5' ? '3:1' : '2:1'}`
                     ] : ['可在网站竞猜']) : ['竞猜未开放'])
                 ].join('\n') });
         }
