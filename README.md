@@ -7,13 +7,14 @@
 
 ### CS2 / Valorant 电竞赛事竞猜平台
 
-赛前比分预测 · 自动积分结算 · 排行榜 · 赛事回看 · 竞猜分享图 · QQ 群机器人
+赛前比分预测 · 自动积分结算 · 实时比分 · 排行榜 · 赛事回看 · 竞猜分享图 · QQ 群机器人
 
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)](https://expressjs.com)
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
 [![PandaScore](https://img.shields.io/badge/data-PandaScore-6c47ff)](https://pandascore.co)
-[![No Build](https://img.shields.io/badge/frontend-vanilla%20JS%20%C2%B7%20no%20build-f7df1e?logo=javascript&logoColor=black)](#技术栈)
+[![GRID](https://img.shields.io/badge/live-GRID%20Open%20Access-0a7cff)](https://grid.gg)
+[![No Build](https://img.shields.io/badge/frontend-vanilla%20JS%20%C2%B7%20no%20build-f7df1e?logo=javascript&logoColor=black)](#架构)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 **[在线体验](https://prpick.gekichumai.cn)** · **[代码 Wiki](docs/wiki/README.md)** · **[机器人部署](bot/README.md)** · **[群竞猜指令](bot/COMMANDS.md)** · **[API 参考](docs/wiki/06-API参考.md)**
@@ -40,12 +41,13 @@
 
 ## 简介
 
-PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点。比赛数据通过 [PandaScore](https://pandascore.co) REST API 自动同步，用户在开赛前预测胜者与比分，赛果出炉后自动结算积分并更新排行榜。
+PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点：积分不可充值、不可兑换，也不设奖品。比赛数据通过 [PandaScore](https://pandascore.co) REST API 自动同步，用户在开赛前预测胜者与比分，赛果出炉后自动结算积分并更新排行榜。
 
 - **零构建**：前端为原生 HTML / CSS / JavaScript，改完刷新即生效
 - **单文件数据库**：Express + better-sqlite3，部署只需 Node 和一个 SQLite 文件
 - **自动同步**：比赛覆盖过去 48 小时到未来 7 天；远期赛事预告默认覆盖未来 180 天
-- **群内联动**：独立的 NapCat / OneBot 机器人进程推送赛程、赛果、临赛提醒，并支持群内直接竞猜
+- **实时比分（可选）**：接入 GRID Open Access，CS2 比赛显示系列赛比分、单图回合比分与 BP 流程
+- **群内联动**：独立的 NapCat / OneBot 机器人进程推送赛程、赛果、临赛提醒和每张图的结果，并支持群内直接竞猜
 
 ## 功能特性
 
@@ -58,7 +60,8 @@ PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点
 - 按游戏（CS2 / Valorant）、赛事、状态筛选比赛
 - 预测胜者与 BO1 / BO3 / BO5 合法比分
 - 开赛前可修改 / 取消，完整保留变更历史
-- 比赛详情：公开预测明细、赛前视角的交手记录（H2H）
+- 比赛详情面板：公开预测分布与明细、赛前视角的交手记录（H2H）、BP 与单图比分
+- **实时比分**（CS2，GRID）：进行中的比赛显示大比分与当前地图回合比分，自动刷新
 - **竞猜分享图**：1080×1350 竖版卡片，队伍主色光晕、结果印章、指向赛事页的二维码，支持保存 / 复制 / 系统分享
 
 </td>
@@ -84,6 +87,7 @@ PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点
 - 弃权标记、预测开关、赛事启用 / 禁用
 - 手动触发同步；赛事预告前瞻天数（7–365 天）
 - 自定义未来赛事预告展示的赛事、上传赛事 logo
+- GRID 实时比分管理接口：手动关联 / 解除 / 屏蔽自动配对、查看轮询状态（见下文配置说明）
 
 </td>
 <td valign="top">
@@ -116,7 +120,8 @@ PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点
 
 ```mermaid
 flowchart LR
-    PS[(PandaScore API)] -- 定时同步 --> SRV
+    PS[(PandaScore API)] -- 赛程 / 赛果 --> SRV
+    GRID[(GRID Open Access)] -- 实时比分 / 单图 --> SRV
     subgraph Linux 服务器
         NG[Nginx :443] --> SRV[Express 服务<br/>server/index.js]
         SRV <--> DB[(SQLite<br/>data/)]
@@ -256,7 +261,10 @@ JWT_SECRET=请替换为随机长字符串
 ALLOWED_ORIGINS=https://your-domain.example
 ICP_NUMBER=豫ICP备XXXXXXXX号
 PANDASCORE_API_TOKEN=你的PandaScoreToken
+GRID_API_TOKEN=你的GRID密钥（可选，启用实时比分）
 BOT_FEED_TOKEN=请替换为随机长字符串
+BOT_COMMAND_GROUP_IDS=123456789
+BOT_ADMIN_QQ_IDS=管理员QQ号
 ```
 
 </details>
@@ -292,17 +300,35 @@ pm2 save && pm2 startup
 ```
 
 <details>
-<summary><b>Nginx 反向代理配置</b></summary>
+<summary><b>Nginx 反向代理与 HTTPS</b></summary>
+
+新建 `/etc/nginx/sites-available/prpick`（CentOS 风格放 `/etc/nginx/conf.d/prpick.conf`）：
 
 ```nginx
-location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain.example;
+
+    client_max_body_size 4m;   # 管理后台上传赛事 logo（≤ 2MB）
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/prpick /etc/nginx/sites-enabled/prpick
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d your-domain.example   # 申请证书并自动加上 443 与 HTTP→HTTPS 跳转
+```
+
+`.env` 的 `ALLOWED_ORIGINS` 必须包含站点的 `https://` 地址，否则登录、竞猜等写请求会被拒绝（403）。更换域名时先把新旧域名都写进去，旧域名用 `return 301 https://新域名$request_uri;` 跳转。
 
 </details>
 
@@ -314,8 +340,18 @@ location / {
 
 - 📅 **每日赛程 / 昨日赛果 / 周报**：用系统自带的 Edge 渲染成与网站同风格的图片，失败时退回 GDI+ 卡片或纯文字
 - ⏰ **临赛提醒**：开赛前提醒；前场拖时导致的顺延会合并进提醒，不刷屏
-- 🗳️ **群内竞猜**：绑定网站账号后直接在群里竞猜、查询，结算结果自动推送
+- 🗳️ **群内竞猜**：绑定网站账号后用 `/pick` 指令竞猜、查询，或直接回复比赛消息发比分；结算结果自动推送
+- 🗺️ **单图结果播报**：CS2 比赛每打完一张图，播报地图比分、大比分和群友的竞猜是否仍有希望（需启用 GRID）
 - 🔁 **自动重启**：`start.ps1` 限制内存占用，进程崩溃后自动拉起
+
+```text
+/pick 赛程 cs2 明天      查看可竞猜的比赛
+/pick 竞猜 123 2:1       竞猜 #123，重复发送即修改
+/pick 我的               查看自己的竞猜
+/pick 帮助               全部指令
+```
+
+旧前缀 `/prpick`、`/prbet` 仍可使用。
 
 👉 [NapCat 配置与运行教程](bot/README.md) · [群竞猜启用与指令说明](bot/COMMANDS.md)
 
@@ -332,7 +368,7 @@ location / {
 | `/api/images` | 队标安全代理 |
 | `/api/qrcode` | 分享图二维码 |
 | `/api/admin` | 管理后台（需管理员） |
-| `/api/bot` | 机器人赛程、指令、结算（需 Token） |
+| `/api/bot` | 机器人赛程、指令、结算与单图结果事件（需 Token） |
 | `/api/bot-account` | 用户 QQ 绑定 |
 | `/api/health` | 健康检查 |
 
@@ -346,7 +382,7 @@ location / {
 │   ├── config/        数据库连接、建表与迁移
 │   ├── middleware/    鉴权、限流、请求日志、错误处理
 │   ├── routes/        REST 路由
-│   ├── services/      PandaScore 同步、赛程图模型、机器人指令与结算
+│   ├── services/      PandaScore 同步、GRID 实时比分、赛程图模型、机器人指令与播报
 │   ├── utils/         计分、结算、校验
 │   └── index.js       入口
 ├── public/            静态前端（无构建）
