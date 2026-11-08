@@ -16,7 +16,7 @@
 [![No Build](https://img.shields.io/badge/frontend-vanilla%20JS%20%C2%B7%20no%20build-f7df1e?logo=javascript&logoColor=black)](#技术栈)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
-**[在线体验](https://prbet.gekichumai.cn)** · **[代码 Wiki](docs/wiki/README.md)** · **[机器人部署](bot/README.md)** · **[群竞猜指令](bot/COMMANDS.md)** · **[API 参考](docs/wiki/06-API参考.md)**
+**[在线体验](https://prpick.gekichumai.cn)** · **[代码 Wiki](docs/wiki/README.md)** · **[机器人部署](bot/README.md)** · **[群竞猜指令](bot/COMMANDS.md)** · **[API 参考](docs/wiki/06-API参考.md)**
 
 </div>
 

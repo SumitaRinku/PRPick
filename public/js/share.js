@@ -13,8 +13,8 @@
     const W = 1080;
     const H = 1350;
     const PAD = 64;
-    const SITE_URL = 'https://prbet.gekichumai.cn';
-    const SITE_LABEL = 'prbet.gekichumai.cn';
+    const SITE_URL = 'https://prpick.gekichumai.cn';
+    const SITE_LABEL = 'prpick.gekichumai.cn';
     const FONT_FAMILY = 'MiSans, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 
     const C = {

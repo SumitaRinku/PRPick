@@ -4,7 +4,7 @@
 
 基于 Express + SQLite 的电竞赛事预测站点：PandaScore 同步近端赛程/赛果与远期赛事预告，支持赛前比分预测、积分结算、排行榜、赛事回看、竞猜分享图，以及 QQ 群赛程/提醒/群内竞猜。
 
-- 线上站点：<https://prbet.gekichumai.cn>
+- 线上站点：<https://prpick.gekichumai.cn>
 - 后端：Node.js ≥ 20 · Express 4 · better-sqlite3（单文件 SQLite）
 - 前端：原生 HTML / CSS / JavaScript，无构建步骤
 - 部署：PM2 + Nginx 反向代理（Linux）；QQ 机器人由独立 `bot/` 进程 + NapCat 驱动
