@@ -29,6 +29,7 @@ Base URL：`/api`。除上传 logo 外均为 JSON 请求/响应。
 | GET | `/` | 👤 | 通用列表。query：`status`、`game_type`、`tournament_id`；≤200 条，排除 TBD，登录附 `user_prediction` |
 | GET | `/upcoming` | 👤 | 首页聚合 `{matches, filters:{status_counts, tournaments, finished_window_days}}`；已结束窗口 1 天；每行附 `display_status` |
 | GET | `/:id` | 👤 | `{match}` + `possible_scores` + 登录用户的 `user_prediction` |
+| GET | `/:id/details` | 🌐 | GRID 每局详细数据 `{match_id, game_type, team1_id, team2_id, games}`，按当前 team1/team2 方向；结构见 `server/services/gridStats.js`（LoL：每局 BP、队伍资源、选手 KDA/补刀/经济/伤害/出装；CS2/Valorant：选手 K/D/A、ADR、爆头率）。列表接口里 `live.has_stats` 标明是否有数据 |
 | GET | `/:id/predictions` | 🌐 | 已结束比赛的公开预测明细；未结算 400 |
 | POST | `/:id/predictions` | 🔒 | `{predicted_winner_id, predicted_team1_score, predicted_team2_score}`；非 TBD、upcoming、betting 开启、未开赛、比分合法且方向一致；写 `prediction_history` |
 | DELETE | `/:id/predictions` | 🔒 | 开赛前取消；无预测 404；写历史 |

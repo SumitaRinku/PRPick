@@ -40,9 +40,32 @@ function ensureLiveSchema(db) {
             PRIMARY KEY (match_id, sequence)
         );
     `);
+    // match_game_stats：每局（每图）详细数据（选手 K/D/A、LoL 的 BP / 经济 / 龙…），JSON 见 services/gridStats.js，
+    // 方向同 match_live_links.team1_id。与 match_games 不同，比赛结束后长期保留，供统计页使用。
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS match_game_stats (
+            match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+            sequence INTEGER NOT NULL,
+            game_type TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('ongoing', 'finished')),
+            payload TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (match_id, sequence)
+        );
+        CREATE INDEX IF NOT EXISTS idx_match_game_stats_game ON match_game_stats(game_type, status);
+    `);
+    // 历史补齐：grid_backfill_misses 记下按队名+时间找不到 GRID series 的旧比赛，避免反复查询。
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS grid_backfill_misses (
+            match_id INTEGER PRIMARY KEY REFERENCES matches(id) ON DELETE CASCADE,
+            checked_at TEXT NOT NULL
+        );
+    `);
     // BP 流程（JSON 数组，方向同 team1_id）：[{ sequence, type: ban|pick|decider, map, team, side? }]
     const linkColumns = db.prepare('PRAGMA table_info(match_live_links)').all().map(column => column.name);
     if (!linkColumns.includes('veto')) db.exec('ALTER TABLE match_live_links ADD COLUMN veto TEXT');
+    // 历史补齐拉取过详细数据的时间（无论 GRID 有没有数据都记，避免重复消耗限额）
+    if (!linkColumns.includes('backfill_at')) db.exec('ALTER TABLE match_live_links ADD COLUMN backfill_at TEXT');
 }
 
 module.exports = { ensureLiveSchema };

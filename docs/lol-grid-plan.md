@@ -36,7 +36,10 @@
 - [x] 阶段 0：注册表重构已提交
 - [x] 阶段 1：GRID 多游戏化。已用真实 API 在库副本上验证：Valorant Champions 2026 决赛 LOUD 3:1 Vitality 自动配对成功，四张图比分都拉到了。Valorant 开放数据**没有 BP（veto 为空）**，只有比分与选手数据。
 - [x] 阶段 2：LoL 基础接入。注册表加 `lol`；国际赛 + 四大赛区新赛事入库即开启展示（按 PandaScore league 名精确匹配，LCK CL 等次级联赛不开）；游戏切换控件按注册表生成；LoL 配色；比分条 / 比赛中心 / 机器人播报按「局」+ 击杀数；LoL 队名配对（JDG、TL Alienware、WeiboGaming、KC Blue 二队）。
-- [ ] 阶段 3 ~ 6
+- [x] 阶段 3：详细数据入库。新表 `match_game_stats`（每局一行 JSON，长期保留），与比分同一次 seriesState 请求取回；`GET /api/matches/:id/details`；历史补齐在服务器轮询里用剩余额度进行（`GRID_BACKFILL_DAYS`，默认 90 天）。在库副本上用真实 API 验证：Worlds 两场半决赛共 7 局补齐成功。
+  - LoL 选手位置 GRID 只给 id 不给名称，存了补刀拆分 / 出装，阶段 4 再推断上中下打野辅助。
+  - 不存镀层数：GRID 计数口径不明。
+- [ ] 阶段 4 ~ 6
 - 待补：LoL 赛事 logo 图片（tournament-logos.js 还没有 LoL 条目，先显示 PandaScore 的联赛 logo）。
 
 ## 二、分阶段计划

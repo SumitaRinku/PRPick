@@ -231,6 +231,7 @@ npm start
 | `GRID_LIVE_INTERVAL_MS` | `60000` | 实时比分轮询间隔（≥ 30000） |
 | `GRID_DISCOVERY_INTERVAL_MS` | `300000` | 自动配对间隔（≥ 60000） |
 | `GRID_STATE_BUDGET` | `5` | 每个 token 每轮最多拉取的 seriesState 数（Open Access 限额按 token 计，6 次/分钟，上限 6）；共用一个 token 的游戏共享这一额度 |
+| `GRID_BACKFILL_DAYS` | `90` | 历史补齐回看天数，`0` 关闭。服务器在轮询里用实时比赛剩下的额度，慢慢给已开启赛事的旧比赛配对并拉取每局详细数据（进度存库、重启续跑、不发群播报） |
 | `GRID_BASE_URL` | `https://api-op.grid.gg` | API 基址 |
 
 - 按「双方队名 + 开赛时间（±4 小时）」把近期比赛自动关联到同游戏的 GRID series（排除 GRID-TEST 测试赛事），academy / junior / NXT 等不同阵容不会互配。

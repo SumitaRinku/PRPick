@@ -3,7 +3,7 @@ const db = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { isValidScore, possibleScores } = require('../utils/scoring');
 const { recordPredictionHistory } = require('../utils/predictionHistory');
-const { attachLiveScores } = require('../services/gridLiveService');
+const { attachLiveScores, getGameStats } = require('../services/gridLiveService');
 
 const router = express.Router();
 const HOME_FINISHED_DAYS = 1;
@@ -203,6 +203,13 @@ router.get('/:id', optionalAuth, (req, res) => {
     attachLiveScores([match]);
     if (req.user) match.user_prediction = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(req.user.id, match.id) || null;
     res.json({ match });
+});
+
+// 每局详细数据（GRID）：选手 K/D/A、LoL 的 BP / 经济 / 龙与大龙等。仅展示，不参与结算。
+router.get('/:id/details', (req, res) => {
+    const match = db.prepare(matchSelect('m.id = ? AND tour.is_active = 1')).get(req.params.id);
+    if (!match) return res.status(404).json({ error: '比赛不存在' });
+    res.json({ match_id: match.id, game_type: match.game_type, team1_id: match.team1_id, team2_id: match.team2_id, games: getGameStats(match) });
 });
 
 router.get('/:id/predictions', (req, res) => {

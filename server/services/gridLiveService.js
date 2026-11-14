@@ -12,6 +12,7 @@
 const db = require('../config/database');
 const { GAMES } = require('../config/games');
 const { pickSeriesForMatch, orientSeriesState } = require('./gridMatching');
+const { normalizeGameStats, flipGameStats } = require('./gridStats');
 const { captureMapResults } = require('./botMapEvents');
 
 const SOURCE = 'grid';
@@ -35,13 +36,16 @@ const POLL_LEAD_MS = 10 * 60 * 1000;
 const STALE_UNSTARTED_MS = 6 * 60 * 60 * 1000;
 const SERIES_TIME_SLACK_MS = 4 * 60 * 60 * 1000;
 const PAGE_SIZE = 50;
+// 历史补齐：回看天数（GRID_BACKFILL_DAYS，0 = 关闭），每次配对每个游戏处理一个 1 天的窗口
+const DEFAULT_BACKFILL_DAYS = 90;
+const BACKFILL_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_PAGES = 8;
 
 let timer = null;
 let running = false;
 let lastDiscoveryAt = 0;
 const backoffUntil = new Map();
-const stats = { last_tick_at: null, last_discovery_at: null, last_error: null, linked_last_discovery: 0, polled_last_tick: 0 };
+const stats = { last_tick_at: null, last_discovery_at: null, last_error: null, linked_last_discovery: 0, polled_last_tick: 0, backfilled_last_tick: 0 };
 
 function tokenValue(tokenEnv) {
     // GRID_API_KEY：CS2 早期使用的变量名，保持兼容
@@ -80,6 +84,10 @@ function numberEnv(name, fallback, min, max = Infinity) {
 
 const intervalMs = () => numberEnv('GRID_LIVE_INTERVAL_MS', DEFAULT_INTERVAL_MS, MIN_INTERVAL_MS);
 const discoveryIntervalMs = () => numberEnv('GRID_DISCOVERY_INTERVAL_MS', DEFAULT_DISCOVERY_INTERVAL_MS, MIN_DISCOVERY_INTERVAL_MS);
+const backfillDays = () => {
+    const value = Number(process.env.GRID_BACKFILL_DAYS);
+    return Number.isFinite(value) && value >= 0 ? Math.min(value, 365) : DEFAULT_BACKFILL_DAYS;
+};
 const stateBudget = () => Math.floor(numberEnv('GRID_STATE_BUDGET', DEFAULT_STATE_BUDGET, 1, MAX_STATE_BUDGET));
 const baseUrl = () => (process.env.GRID_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
@@ -154,15 +162,34 @@ async function fetchSeries(game, seriesId) {
     return data.series || null;
 }
 
-async function fetchSeriesState(game, seriesId) {
-    const data = await graphql(game.tokenEnv, STATE_PATH, `query($id: ID!) {
-        seriesState(id: $id) {
-            id started finished updatedAt
-            teams { id name won score }
-            games { sequenceNumber started finished map { name } teams { id won score } }
+// 一次请求同时取比分和每局详细数据（选手 / LoL 经济与资源 / 每局 BP），不额外消耗限额。
+// 各游戏特有字段用内联片段，查询对所有游戏通用。
+const SERIES_STATE_QUERY = `query($id: ID!) {
+    seriesState(id: $id) {
+        id started finished updatedAt
+        teams { id name won score }
+        draftActions { type sequenceNumber drafter { id type } draftable { type name } }
+        games {
+            sequenceNumber started finished map { name } duration
             draftActions { type sequenceNumber drafter { id type } draftable { type name } }
+            teams {
+                id side won score kills deaths killAssistsGiven netWorth
+                objectives { type completionCount }
+                ... on GameTeamStateLol { moneyDifference totalMoneyEarned damageDealt visionScore }
+                players {
+                    id name character { name } kills deaths killAssistsGiven netWorth
+                    ... on GamePlayerStateLol { inventory { items { name } } unitKills { unitName count } objectives { type completionCount }
+                        damageDealt damagePercentage killParticipation visionScore totalMoneyEarned }
+                    ... on GamePlayerStateCs2 { damageDealt headshots }
+                    ... on GamePlayerStateValorant { damageDealt headshots }
+                }
+            }
         }
-    }`, { id: String(seriesId) });
+    }
+}`;
+
+async function fetchSeriesState(game, seriesId) {
+    const data = await graphql(game.tokenEnv, STATE_PATH, SERIES_STATE_QUERY, { id: String(seriesId) });
     return data.seriesState || null;
 }
 
@@ -203,7 +230,7 @@ function insertLink(match, pick, method, now) {
 async function discover(nowMs = Date.now()) {
     lastDiscoveryAt = nowMs;
     stats.last_discovery_at = new Date(nowMs).toISOString();
-    const total = { candidates: 0, series: 0, linked: 0, games: {} };
+    const total = { candidates: 0, series: 0, linked: 0, backfill_linked: 0, games: {} };
     const errors = [];
     for (const game of gridGames()) {
         try {
@@ -212,6 +239,17 @@ async function discover(nowMs = Date.now()) {
             total.candidates += result.candidates;
             total.series += result.series || 0;
             total.linked += result.linked;
+            // 实时配对之后再补一个历史窗口；失败只记错误，不影响实时
+            try {
+                const backfill = await backfillDiscoverGame(game, nowMs);
+                if (backfill) {
+                    result.backfill = backfill;
+                    total.backfill_linked += backfill.linked;
+                }
+            } catch (error) {
+                result.backfill = { error: error.message };
+                if (!(error instanceof GridRateLimitError)) errors.push(`${game.label} 历史补齐: ${error.message}`);
+            }
         } catch (error) {
             total.games[game.key] = { error: error.message };
             errors.push(`${game.label}: ${error.message}`);
@@ -225,6 +263,13 @@ async function discover(nowMs = Date.now()) {
 async function discoverGame(game, nowMs) {
     const candidates = discoveryCandidates(game.key, nowMs);
     if (!candidates.length) return { candidates: 0, linked: 0 };
+    const { series, linked } = await linkCandidates(game, candidates, nowMs);
+    if (linked.size) console.log(`[GRID] ${game.label} 新关联 ${linked.size}/${candidates.length} 场比赛（窗口内 ${series} 个 series）`);
+    return { candidates: candidates.length, series, linked: linked.size };
+}
+
+// 拉取覆盖这批比赛的 GRID series 并逐场配对；返回窗口内 series 数和配上的本地比赛 id。
+async function linkCandidates(game, candidates, nowMs) {
     const times = candidates.map(match => new Date(match.match_time).getTime());
     const from = new Date(Math.min(...times) - SERIES_TIME_SLACK_MS).toISOString();
     const to = new Date(Math.max(...times) + SERIES_TIME_SLACK_MS).toISOString();
@@ -232,19 +277,75 @@ async function discoverGame(game, nowMs) {
 
     const taken = new Set(db.prepare('SELECT series_id FROM match_live_links WHERE source = ? AND series_id IS NOT NULL').all(SOURCE).map(row => row.series_id));
     const now = new Date(nowMs).toISOString();
-    let linked = 0;
+    const linked = new Set();
     const tx = db.transaction(() => {
         for (const match of candidates) {
             const pick = pickSeriesForMatch(match, series, { excludeSeriesIds: taken });
             if (!pick) continue;
             insertLink(match, pick, 'auto', now);
             taken.add(String(pick.series.id));
-            linked++;
+            linked.add(match.id);
         }
     });
     tx();
-    if (linked) console.log(`[GRID] ${game.label} 新关联 ${linked}/${candidates.length} 场比赛（窗口内 ${series.length} 个 series）`);
-    return { candidates: candidates.length, series: series.length, linked };
+    return { series: series.length, linked };
+}
+
+// ===== 历史补齐 =====
+// 统计页需要历史数据，而本地库不会上传到服务器，所以补齐就在服务器的轮询里慢慢做：
+//   配对：每次配对时，每个游戏挑最近一个「已结束、未关联、没查过」的比赛，处理它往前 1 天窗口内的比赛；
+//   详细数据：每轮实时轮询后，用该 token 剩余的 seriesState 额度拉取已结束、还没有详细数据的关联比赛。
+// 进度都记在库里（grid_backfill_misses / match_live_links.backfill_at），重启后接着做，不会重复消耗额度。
+
+const UNLINKED_FINISHED = `
+    FROM matches m
+    JOIN tournaments tour ON tour.id = m.tournament_id
+    JOIN teams t1 ON t1.id = m.team1_id
+    JOIN teams t2 ON t2.id = m.team2_id
+    LEFT JOIN match_live_links l ON l.match_id = m.id
+    LEFT JOIN grid_backfill_misses miss ON miss.match_id = m.id
+    WHERE tour.game_type = ? AND tour.is_active = 1 AND m.status = 'finished'
+        AND t1.name <> 'TBD' AND t2.name <> 'TBD'
+        AND l.match_id IS NULL AND miss.match_id IS NULL`;
+
+async function backfillDiscoverGame(game, nowMs) {
+    const days = backfillDays();
+    if (!days) return null;
+    const oldest = new Date(nowMs - days * 86400000).toISOString();
+    const newest = new Date(nowMs - LOOKBACK_MS).toISOString();
+    const anchor = db.prepare(`SELECT m.match_time ${UNLINKED_FINISHED}
+        AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)
+        ORDER BY m.match_time DESC LIMIT 1`).get(game.key, oldest, newest);
+    if (!anchor) return { candidates: 0, linked: 0 };
+    const windowEnd = Date.parse(anchor.match_time);
+    const windowStart = Math.max(windowEnd - BACKFILL_WINDOW_MS, Date.parse(oldest));
+    const candidates = db.prepare(`SELECT ${MATCH_COLUMNS} ${UNLINKED_FINISHED}
+        AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)
+        ORDER BY m.match_time DESC LIMIT 80`).all(game.key, new Date(windowStart).toISOString(), anchor.match_time);
+    const { series, linked } = await linkCandidates(game, candidates, nowMs);
+    const now = new Date(nowMs).toISOString();
+    const miss = db.prepare('INSERT OR IGNORE INTO grid_backfill_misses (match_id, checked_at) VALUES (?, ?)');
+    db.transaction(() => { for (const match of candidates) if (!linked.has(match.id)) miss.run(match.id, now); })();
+    if (linked.size) console.log(`[GRID] ${game.label} 历史补齐关联 ${linked.size}/${candidates.length} 场（${anchor.match_time.slice(0, 10)} 前 1 天）`);
+    return { candidates: candidates.length, series, linked: linked.size };
+}
+
+function backfillStateCandidates(gameKeys, nowMs, limit) {
+    const days = backfillDays();
+    if (!days || limit <= 0) return [];
+    return db.prepare(`
+        SELECT l.*, m.team1_id match_team1_id, m.team2_id match_team2_id, m.match_time, tour.game_type
+        FROM match_live_links l
+        JOIN matches m ON m.id = l.match_id
+        JOIN tournaments tour ON tour.id = m.tournament_id
+        WHERE tour.is_active = 1 AND tour.game_type IN (${gameKeys.map(() => '?').join(',')})
+            AND l.source = ? AND l.series_id IS NOT NULL AND l.link_method != 'none'
+            AND m.status = 'finished' AND l.backfill_at IS NULL
+            AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)
+            AND NOT EXISTS (SELECT 1 FROM match_game_stats s WHERE s.match_id = l.match_id)
+        ORDER BY m.match_time DESC
+        LIMIT ?
+    `).all(...gameKeys, SOURCE, new Date(nowMs - days * 86400000).toISOString(), new Date(nowMs - LOOKBACK_MS).toISOString(), limit);
 }
 
 // gameKeys：共用同一 token 的游戏，一起按上次拉取时间轮转、共享这一 token 的每轮额度。
@@ -284,11 +385,26 @@ function gamesByToken() {
 
 function dropLink(matchId) {
     db.prepare('DELETE FROM match_games WHERE match_id = ?').run(matchId);
+    db.prepare('DELETE FROM match_game_stats WHERE match_id = ?').run(matchId);
     db.prepare('DELETE FROM match_live_links WHERE match_id = ?').run(matchId);
 }
 
+// 每局详细数据：只在本次响应确实带有对局时整体替换，避免一次空响应抹掉已存数据。
+function writeGameStats(link, state, team1GridId, team2GridId, now) {
+    const gameType = link.game_type || 'cs2';
+    const rows = (Array.isArray(state.games) ? state.games : [])
+        .map(game => normalizeGameStats(gameType, game, team1GridId, team2GridId))
+        .filter(stats => stats && Number.isInteger(stats.sequence));
+    if (!rows.length) return;
+    db.prepare('DELETE FROM match_game_stats WHERE match_id = ?').run(link.match_id);
+    const insert = db.prepare(`INSERT INTO match_game_stats (match_id, sequence, game_type, status, payload, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`);
+    for (const stats of rows) insert.run(link.match_id, stats.sequence, gameType, stats.status, JSON.stringify(stats), now);
+}
+
 // 把一次 seriesState 写库；返回 'pending' | 'updated' | 'unlinked' | 'mismatch'。
-function applySeriesState(link, state, now) {
+// backfill：补历史数据时不产生群播报。
+function applySeriesState(link, state, now, { backfill = false } = {}) {
     if (!state) {
         db.prepare('UPDATE match_live_links SET last_polled_at = ?, last_error = NULL WHERE match_id = ?').run(now, link.match_id);
         return 'pending';
@@ -324,9 +440,12 @@ function applySeriesState(link, state, now) {
         for (const game of oriented.games) {
             insert.run(link.match_id, game.sequence, game.mapName, game.team1Rounds, game.team2Rounds, game.winner, game.status, now);
         }
+        writeGameStats(link, state, team1GridId, team2GridId, now);
         // 刚结束的地图记为群播报事件；关联后的首次轮询只作基线。
-        captureMapResults(db, { matchId: link.match_id, previousGames, games: oriented.games,
-            firstPoll: !link.last_polled_at, seriesFinished: oriented.finished, nowMs: Date.parse(now) });
+        if (!backfill) {
+            captureMapResults(db, { matchId: link.match_id, previousGames, games: oriented.games,
+                firstPoll: !link.last_polled_at, seriesFinished: oriented.finished, nowMs: Date.parse(now) });
+        }
     });
     tx();
     return 'updated';
@@ -334,12 +453,15 @@ function applySeriesState(link, state, now) {
 
 async function poll(nowMs = Date.now()) {
     const now = new Date(nowMs).toISOString();
-    const outcome = { polled: 0, updated: 0, unlinked: 0, errors: [] };
+    const outcome = { polled: 0, updated: 0, unlinked: 0, backfilled: 0, errors: [] };
     for (const games of gamesByToken().values()) {
         const byKey = new Map(games.map(game => [game.key, game]));
         const links = pollCandidates([...byKey.keys()], nowMs, stateBudget());
+        let used = 0;
+        let limited = false;
         for (const link of links) {
             const game = byKey.get(link.game_type);
+            used++;
             try {
                 const state = await fetchSeriesState(game, link.series_id);
                 const result = applySeriesState(link, state, now);
@@ -350,6 +472,7 @@ async function poll(nowMs = Date.now()) {
                 // 该 token 被限流：本轮跳过它剩下的比赛，其他 token 照常
                 if (error instanceof GridRateLimitError) {
                     outcome.errors.push(`${game.label}: ${error.message}`);
+                    limited = true;
                     break;
                 }
                 db.prepare('UPDATE match_live_links SET last_polled_at = ?, last_error = ? WHERE match_id = ?')
@@ -357,9 +480,38 @@ async function poll(nowMs = Date.now()) {
                 outcome.errors.push(`#${link.match_id}: ${error.message}`);
             }
         }
+        if (!limited) await backfillStates(byKey, nowMs, stateBudget() - used, outcome);
     }
     stats.polled_last_tick = outcome.polled;
+    stats.backfilled_last_tick = outcome.backfilled;
     return outcome;
+}
+
+// 用实时轮询剩下的额度补拉已结束比赛的详细数据（不产生群播报）
+async function backfillStates(byKey, nowMs, remaining, outcome) {
+    const now = new Date(nowMs).toISOString();
+    for (const link of backfillStateCandidates([...byKey.keys()], nowMs, remaining)) {
+        const game = byKey.get(link.game_type);
+        try {
+            const state = await fetchSeriesState(game, link.series_id);
+            const result = applySeriesState(link, state, now, { backfill: true });
+            if (result === 'unlinked') {
+                // 历史比赛的队伍对不上：记为查不到，避免下次配对又把它关联回来
+                db.prepare('INSERT OR IGNORE INTO grid_backfill_misses (match_id, checked_at) VALUES (?, ?)').run(link.match_id, now);
+            } else {
+                db.prepare('UPDATE match_live_links SET backfill_at = ? WHERE match_id = ?').run(now, link.match_id);
+            }
+            outcome.backfilled++;
+        } catch (error) {
+            if (error instanceof GridRateLimitError) {
+                outcome.errors.push(`${game.label}: ${error.message}`);
+                return;
+            }
+            db.prepare('UPDATE match_live_links SET backfill_at = ?, last_error = ? WHERE match_id = ?')
+                .run(now, error.message.slice(0, 300), link.match_id);
+            outcome.errors.push(`#${link.match_id}: ${error.message}`);
+        }
+    }
 }
 
 async function runGridLiveTick(mode = 'scheduled', options = {}) {
@@ -451,6 +603,8 @@ function attachLiveScores(matches) {
         gamesByMatch.get(game.match_id).push(game);
     }
     const linkByMatch = new Map(links.map(link => [link.match_id, link]));
+    const statsCount = new Map(db.prepare(`SELECT match_id, COUNT(*) n FROM match_game_stats WHERE match_id IN (${placeholders}) GROUP BY match_id`)
+        .all(...ids).map(row => [row.match_id, row.n]));
     for (const match of matches) {
         const link = linkByMatch.get(match.id);
         if (!link) continue;
@@ -468,6 +622,8 @@ function attachLiveScores(matches) {
             team1_score: flip ? link.team2_score : link.team1_score,
             team2_score: flip ? link.team1_score : link.team2_score,
             updated_at: link.state_updated_at || link.last_polled_at,
+            // 有每局详细数据（选手 / LoL 经济与资源），详情接口 /api/matches/:id/details 可取
+            has_stats: (statsCount.get(match.id) || 0) > 0,
             games: rows.map(game => ({
                 sequence: game.sequence,
                 map: game.map_name,
@@ -484,6 +640,40 @@ function attachLiveScores(matches) {
         };
     }
     return matches;
+}
+
+// 一场比赛的每局详细数据，按当前 team1 / team2 方向返回（PandaScore 对调过主客队则翻转）。
+function getGameStats(match) {
+    const link = getLink(match.id);
+    const rows = db.prepare('SELECT sequence, payload FROM match_game_stats WHERE match_id = ? ORDER BY sequence ASC').all(match.id);
+    const flip = link?.team1_id != null && Number(link.team1_id) === Number(match.team2_id);
+    return rows.map(row => {
+        let stats;
+        try { stats = JSON.parse(row.payload); } catch { return null; }
+        return flip ? flipGameStats(stats) : stats;
+    }).filter(Boolean);
+}
+
+// 历史补齐进度（管理接口 /api/admin/grid/status 展示）
+function backfillStatus() {
+    const days = backfillDays();
+    if (!days) return { days: 0 };
+    const nowMs = Date.now();
+    const range = [new Date(nowMs - days * 86400000).toISOString(), new Date(nowMs - LOOKBACK_MS).toISOString()];
+    const keys = gridGames().map(game => game.key);
+    if (!keys.length) return { days };
+    const inGames = `tour.game_type IN (${keys.map(() => '?').join(',')})`;
+    const unlinked = db.prepare(`SELECT COUNT(*) n FROM matches m JOIN tournaments tour ON tour.id = m.tournament_id
+        LEFT JOIN match_live_links l ON l.match_id = m.id LEFT JOIN grid_backfill_misses miss ON miss.match_id = m.id
+        WHERE ${inGames} AND tour.is_active = 1 AND m.status = 'finished' AND l.match_id IS NULL AND miss.match_id IS NULL
+        AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)`).get(...keys, ...range).n;
+    const statsPending = db.prepare(`SELECT COUNT(*) n FROM match_live_links l JOIN matches m ON m.id = l.match_id
+        JOIN tournaments tour ON tour.id = m.tournament_id
+        WHERE ${inGames} AND tour.is_active = 1 AND m.status = 'finished' AND l.series_id IS NOT NULL AND l.link_method != 'none'
+        AND l.backfill_at IS NULL AND NOT EXISTS (SELECT 1 FROM match_game_stats s WHERE s.match_id = l.match_id)
+        AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)`).get(...keys, ...range).n;
+    const withStats = db.prepare('SELECT COUNT(DISTINCT match_id) n FROM match_game_stats').get().n;
+    return { days, unlinked_pending: unlinked, stats_pending: statsPending, matches_with_stats: withStats };
 }
 
 function gridLiveStatus() {
@@ -503,6 +693,7 @@ function gridLiveStatus() {
         interval_ms: intervalMs(),
         discovery_interval_ms: discoveryIntervalMs(),
         state_budget: stateBudget(),
+        backfill: backfillStatus(),
         links: counts,
         ...stats
     };
@@ -528,6 +719,7 @@ module.exports = {
     poll,
     applySeriesState,
     attachLiveScores,
+    getGameStats,
     linkMatchToSeries,
     unlinkMatch,
     getLink,

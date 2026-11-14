@@ -380,3 +380,116 @@ test('manual links refuse series from another game', async () => {
     addValorantMatch(db, soon);
     await assert.rejects(service.linkMatchToSeries(11, '900'), /不是 Valorant/);
 });
+
+// ===== 每局详细数据 =====
+
+test('polling stores per-game details and the details read follows a later home/away swap', async () => {
+    const lolGame = require('./fixtures/grid-lol-game.json').game;
+    const { db, service, soon } = fixture({
+        central: () => allSeriesPage([]),
+        state: () => jsonResponse({ data: { seriesState: { id: '3012978', started: true, finished: false, updatedAt: soon,
+            teams: [{ id: '47494', score: 0 }, { id: '356', score: 1 }], games: [lolGame] } } })
+    }, { RIOT_GRID_API_TOKEN: 'riot-key' });
+    db.prepare("UPDATE tournaments SET game_type = 'lol' WHERE id = 1").run();
+    // 本地 team1 (id 1) ↔ GRID BLG 356；team2 (id 2) ↔ GRID T1 47494
+    db.prepare(`INSERT INTO match_live_links (match_id, series_id, link_method, team1_id, team_map, linked_at)
+        VALUES (1, '3012978', 'auto', 1, '{"1":"356","2":"47494"}', ?)`).run(soon);
+
+    const result = await service.runGridLiveTick('manual');
+    assert.equal(result.poll.updated, 1);
+    const [row] = db.prepare('SELECT game_type, status FROM match_game_stats WHERE match_id = 1').all();
+    assert.deepEqual({ ...row }, { game_type: 'lol', status: 'finished' });
+
+    const [live] = service.attachLiveScores([{ id: 1, team1_id: 1, team2_id: 2 }]);
+    assert.equal(live.live.has_stats, true);
+    const [game] = service.getGameStats({ id: 1, team1_id: 1, team2_id: 2 });
+    assert.equal(game.teams.team1.kills, 18);
+    assert.equal(game.players.team1.find(p => p.name === 'Viper').champion, 'Corki');
+
+    const [swapped] = service.getGameStats({ id: 1, team1_id: 2, team2_id: 1 });
+    assert.equal(swapped.teams.team1.kills, 6);
+    assert.equal(swapped.winner, 'team2');
+
+    // 解除关联时一并清掉
+    service.unlinkMatch(1);
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM match_game_stats').get().c, 0);
+});
+
+// ===== 历史补齐 =====
+
+const hoursAgo = h => new Date(Date.now() - h * 3600e3).toISOString();
+
+test('backfill fetches details for old finished matches with the quota live polling left, once, without bot events', async () => {
+    const polled = [];
+    const finishedState = { ...liveState, finished: true, games: liveState.games.map(g => ({ ...g, finished: true, teams: g.teams.map(t => ({ ...t, won: t.id === '51814' })) })) };
+    const { db, service } = fixture({
+        central: () => allSeriesPage([]),
+        state: body => { polled.push(body.variables.id); return jsonResponse({ data: { seriesState: finishedState } }); }
+    }, { GRID_STATE_BUDGET: '2' });
+    db.prepare("UPDATE matches SET match_time = ?, status = 'finished' WHERE id = 1").run(hoursAgo(40));
+    db.prepare(`INSERT INTO match_live_links (match_id, series_id, link_method, team1_id, team_map, finished, last_polled_at, linked_at)
+        VALUES (1, '900', 'auto', 1, '{"1":"51814","2":"52389"}', 1, ?, ?)`).run(hoursAgo(39), hoursAgo(41));
+
+    const first = await service.runGridLiveTick('manual');
+    assert.equal(first.poll.backfilled, 1);
+    assert.deepEqual(polled, ['900']);
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM match_game_stats WHERE match_id = 1').get().c, 2);
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM bot_map_events').get().c, 0, 'history must not be broadcast');
+    assert.ok(service.getLink(1).backfill_at);
+
+    await service.runGridLiveTick('manual');
+    assert.deepEqual(polled, ['900'], 'each old match is fetched once');
+    assert.equal(service.gridLiveStatus().backfill.matches_with_stats, 1);
+});
+
+test('live matches use the budget first; backfill waits', async () => {
+    const polled = [];
+    const { db, service, soon } = fixture({
+        central: () => allSeriesPage([]),
+        state: body => { polled.push(body.variables.id); return jsonResponse({ data: { seriesState: null } }); }
+    }, { GRID_STATE_BUDGET: '1' });
+    db.prepare("INSERT INTO matches(id, tournament_id, team1_id, team2_id, format, match_time, status) VALUES(2, 1, 3, 2, 'BO3', ?, 'finished')").run(hoursAgo(40));
+    const insert = db.prepare("INSERT INTO match_live_links (match_id, series_id, link_method, team1_id, team_map, finished, linked_at) VALUES (?, ?, 'auto', ?, '{}', ?, ?)");
+    insert.run(1, '901', 1, 0, soon);
+    insert.run(2, '902', 3, 1, hoursAgo(41));
+    await service.runGridLiveTick('manual');
+    assert.deepEqual(polled, ['901']);
+});
+
+test('backfill pairing links old matches one day at a time and remembers the ones GRID does not have', async () => {
+    const windows = [];
+    const old = hoursAgo(50);
+    const { db, service } = fixture({
+        central: body => {
+            windows.push(body.variables.from);
+            return allSeriesPage([gridSeries(950, old, [['52389', 'Parivision'], ['51814', 'Natus Vincere']])]);
+        },
+        state: () => jsonResponse({ data: { seriesState: null } })
+    });
+    db.prepare("UPDATE matches SET match_time = ?, status = 'finished' WHERE id = 1").run(old);
+    // 同一天另一场 GRID 没有的比赛
+    db.prepare("INSERT INTO matches(id, tournament_id, team1_id, team2_id, format, match_time, status) VALUES(2, 1, 3, 2, 'BO3', ?, 'finished')").run(hoursAgo(52));
+
+    const first = await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.equal(first.discovery.backfill_linked, 1);
+    assert.equal(service.getLink(1).series_id, '950');
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM grid_backfill_misses WHERE match_id = 2').get().c, 1);
+
+    const calls = windows.length;
+    await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.equal(windows.length, calls, 'nothing left to pair, no extra central-data requests');
+});
+
+test('GRID_BACKFILL_DAYS=0 turns history backfill off', async () => {
+    const polled = [];
+    const { db, service } = fixture({
+        central: () => allSeriesPage([]),
+        state: body => { polled.push(body.variables.id); return jsonResponse({ data: { seriesState: null } }); }
+    }, { GRID_BACKFILL_DAYS: '0' });
+    db.prepare("UPDATE matches SET match_time = ?, status = 'finished' WHERE id = 1").run(hoursAgo(40));
+    db.prepare("INSERT INTO match_live_links (match_id, series_id, link_method, team1_id, team_map, finished, linked_at) VALUES (1, '900', 'auto', 1, '{}', 1, ?)").run(hoursAgo(41));
+    const result = await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.deepEqual(polled, []);
+    assert.equal(result.discovery.backfill_linked, 0);
+    assert.equal(service.gridLiveStatus().backfill.days, 0);
+});
