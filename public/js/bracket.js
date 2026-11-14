@@ -534,7 +534,7 @@ function swissRoundColumnClean(group, finalBuckets) {
             ? swissResultBucketsForLabels(finalBuckets, ['1-3淘汰', '2-3淘汰'])
             : [];
     return `<section class="sw2-column">
-        <div class="sw2-round-title">${escapeHtml(stageLabel(group.label))}</div>
+        <div class="sw2-round-title">${escapeHtml(bracketLabel(group.label))}</div>
         <div class="sw2-buckets">
             ${swissResultZoneClean(topResults, 'top')}
             <div class="sw2-round-buckets">
@@ -590,6 +590,11 @@ function playoffRoundLabel(match) {
     if (source.includes('grand final') || source.includes('总决赛')) return { key: '90-final', label: '决赛', order: 90 };
     if ((/\bfinals?\b/.test(source) || source.includes('决赛')) && !/bracket/.test(source)) return { key: '90-final', label: '决赛', order: 90 };
     return null;
+}
+
+// 显示用的中文阶段名（games.js 的 stageLabel）；单独加载本文件（如测试）时保留原文
+function bracketLabel(text) {
+    return typeof stageLabel === 'function' ? stageLabel(text) : text;
 }
 
 function playoffDisplayLabel(label) {
@@ -742,7 +747,7 @@ function playoffDiagram(matches) {
             <svg class="pb2-lines" viewBox="0 0 ${layout.w} ${layout.h}" aria-hidden="true">
                 ${layout.lines.map(path => `<path d="${path}"></path>`).join('')}
             </svg>
-            ${groups.map((group, roundIndex) => `<div class="pb2-title" style="left:${layout.xs[roundIndex]}px;top:18px;width:${layout.widths[roundIndex]}px">${escapeHtml(stageLabel(playoffDisplayLabel(group.label)))}</div>`).join('')}
+            ${groups.map((group, roundIndex) => `<div class="pb2-title" style="left:${layout.xs[roundIndex]}px;top:18px;width:${layout.widths[roundIndex]}px">${escapeHtml(bracketLabel(playoffDisplayLabel(group.label)))}</div>`).join('')}
             ${groups.map((group, roundIndex) => group.matches.map((match, index) => `<div class="pb2-slot${narrowFlags[roundIndex] ? ' pb2-narrow' : ''}" style="left:${layout.xs[roundIndex]}px;top:${layout.ys[roundIndex][index]}px;width:${layout.widths[roundIndex]}px;height:${layout.cardH}px">${bracketWhenChip(match)}${playoffCardClean(match)}</div>`).join('')).join('')}
         </div>
     </div>`;
@@ -876,7 +881,7 @@ function doubleElimRound(label, matches, laneHeight, cardHeight, flow = null, na
     const countClass = `count-${Math.max(matches.length, 1)}`;
     const slotHeight = matches.length ? laneHeight / matches.length : laneHeight;
     return `<section class="de-round ${countClass}${narrow ? ' de-narrow' : ''} ${extraClass}">
-        <div class="de-round-title">${escapeHtml(stageLabel(label))}</div>
+        <div class="de-round-title">${escapeHtml(bracketLabel(label))}</div>
         <div class="de-card-list bracket-positioned" style="height:${laneHeight}px">${matches.map((match, index) => {
             const top = Math.round((index + 0.5) * slotHeight - cardHeight / 2);
             // 时间/LIVE 角标挂在 slot 上（卡片自身 overflow:hidden 会裁掉悬挂角标）
@@ -893,7 +898,7 @@ function doubleElimLane(label, rounds, tone, bracketNarrowFlags = null) {
     // 按精确间距计算：最多对阵数的轮次里相邻卡片的实际间隙 == cardGap
     const laneHeight = maxMatches * (cardHeight + cardGap);
     return `<div class="de-lane ${tone}">
-        <div class="de-lane-label">${escapeHtml(stageLabel(label))}</div>
+        <div class="de-lane-label">${escapeHtml(bracketLabel(label))}</div>
         <div class="de-lane-rounds" style="--de-round-count:${Math.max(rounds.length, 1)}">${rounds.map((round, index) => {
             const flow = tone === 'upper' && index < rounds.length - 1 ? 'drop' : index === rounds.length - 1 ? 'advance' : null;
             // 窄列旗标由 doubleElimDiagram 按整图统一计算（UB/LB 下标对齐），两条泳道列宽保持一致
@@ -1382,7 +1387,7 @@ function gslGroupDiagram(matches, edges = []) {
         { x: layout.xs[1], y: 0, text: "Winners' match" },
         { x: layout.xs[1], y: subTitleTop, text: 'Elimination match' },
         { x: layout.xs[2], y: subTitleTop, text: 'Decider match' }
-    ].map(item => `<div class="pb2-title" data-bracket-column="${item.x}" style="left:${item.x}px;top:${item.y}px;width:${metrics.cardW}px">${escapeHtml(stageLabel(item.text))}</div>`).join('');
+    ].map(item => `<div class="pb2-title" data-bracket-column="${item.x}" style="left:${item.x}px;top:${item.y}px;width:${metrics.cardW}px">${escapeHtml(bracketLabel(item.text))}</div>`).join('');
     const cards = nodes.map(match => {
         const position = layout.positions.get(match.__official_id);
         if (!position) return '';
@@ -1521,7 +1526,7 @@ function officialLaneHtml(label, matches, layout, metrics, flowMap = null, title
     if (!matches.length) return '';
     const titles = layout.columns.map(column => {
         const text = titleFor ? titleFor(column) : officialColumnTitle(column.matches);
-        return `<div class="pb2-title" data-bracket-column="${column.x}" style="left:${column.x}px;top:0;width:${metrics.cardW}px">${escapeHtml(stageLabel(text))}</div>`;
+        return `<div class="pb2-title" data-bracket-column="${column.x}" style="left:${column.x}px;top:0;width:${metrics.cardW}px">${escapeHtml(bracketLabel(text))}</div>`;
     }).join('');
     const cards = matches.map(match => {
         const position = layout.positions.get(match.__official_id);
@@ -1530,12 +1535,12 @@ function officialLaneHtml(label, matches, layout, metrics, flowMap = null, title
         const card = flow ? compactBracketCard(match, 'pb2', flow) : playoffCardClean(match, drops.has(match.__official_id));
         const cardLabel = cardLabelFor ? cardLabelFor(match) : '';
         return `<div class="pb2-slot bracket-match${match.__unlinked ? ' bracket-unlinked' : ''}" data-bracket-match="${escapeHtml(match.__official_id)}" style="left:${position.x}px;top:${position.y}px;width:${metrics.cardW}px;height:${metrics.cardH}px">
-            ${cardLabel ? `<span class="official-card-label">${escapeHtml(stageLabel(cardLabel))}</span>` : ''}
+            ${cardLabel ? `<span class="official-card-label">${escapeHtml(bracketLabel(cardLabel))}</span>` : ''}
             ${bracketWhenChip(match)}${card}
         </div>`;
     }).join('');
     return `<section class="official-lane">
-        ${label ? `<div class="official-lane-label">${escapeHtml(stageLabel(label))}</div>` : ''}
+        ${label ? `<div class="official-lane-label">${escapeHtml(bracketLabel(label))}</div>` : ''}
         <div class="official-canvas" style="--pb2-w:${layout.width}px;--pb2-h:${layout.height}px;width:${layout.width}px;height:${layout.height}px">
             <svg class="pb2-lines" viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true">${bracketLinesHtml(layout.lines)}</svg>
             ${titles}
@@ -1547,7 +1552,7 @@ function officialLaneHtml(label, matches, layout, metrics, flowMap = null, title
 function officialExtrasSection(label, matches, metrics) {
     if (!matches.length) return '';
     return `<section class="official-finals">
-        <div class="official-lane-label">${escapeHtml(stageLabel(label))}</div>
+        <div class="official-lane-label">${escapeHtml(bracketLabel(label))}</div>
         <div class="official-finals-cards">
             ${matches.map(match => `<div class="official-final-card">
                 <div class="official-final-slot" style="width:${metrics.cardW}px;height:${metrics.cardH}px">${bracketWhenChip(match)}${playoffCardClean(match)}</div>
@@ -1737,7 +1742,7 @@ function tournamentBracketSections(matches, officialStages, options = {}) {
         }
         if (!diagram) return '';
         return `<section class="home-bracket-stage">
-            <h4 class="home-bracket-stage-title">${escapeHtml(stageLabel(group.label || ''))}</h4>
+            <h4 class="home-bracket-stage-title">${escapeHtml(bracketLabel(group.label || ''))}</h4>
             ${diagram}
         </section>`;
     }).filter(Boolean).join('');
