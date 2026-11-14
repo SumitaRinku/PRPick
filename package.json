@@ -12,7 +12,8 @@
     "cleanup:pandascore-duplicates": "node scripts/cleanup-pandascore-duplicates.js",
     "backup": "node scripts/backup-db.js",
     "restore": "node scripts/restore-db.js",
-    "sync:pandascore": "node -e \"require('dotenv').config(); require('./server/config/init-db').ensureDatabase(); require('./server/services/pandascoreService').syncPandascoreMatches('cli').then(r=>{console.log(r); process.exit(0);}).catch(e=>{console.error(e); process.exit(1);})\""
+    "sync:pandascore": "node -e \"require('dotenv').config(); require('./server/config/init-db').ensureDatabase(); require('./server/services/pandascoreService').syncPandascoreMatches('cli').then(r=>{console.log(r); process.exit(0);}).catch(e=>{console.error(e); process.exit(1);})\"",
+    "import:history": "node scripts/import-history.js"
   },
   "keywords": [
     "cs2",

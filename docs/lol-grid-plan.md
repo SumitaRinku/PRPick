@@ -37,6 +37,7 @@
 - [x] 阶段 1：GRID 多游戏化。已用真实 API 在库副本上验证：Valorant Champions 2026 决赛 LOUD 3:1 Vitality 自动配对成功，四张图比分都拉到了。Valorant 开放数据**没有 BP（veto 为空）**，只有比分与选手数据。
 - [x] 阶段 2：LoL 基础接入。注册表加 `lol`；国际赛 + 四大赛区新赛事入库即开启展示（按 PandaScore league 名精确匹配，LCK CL 等次级联赛不开）；游戏切换控件按注册表生成；LoL 配色；比分条 / 比赛中心 / 机器人播报按「局」+ 击杀数；LoL 队名配对（JDG、TL Alienware、WeiboGaming、KC Blue 二队）。
 - [x] 阶段 3：详细数据入库。新表 `match_game_stats`（每局一行 JSON，长期保留），与比分同一次 seriesState 请求取回；`GET /api/matches/:id/details`；历史补齐在服务器轮询里用剩余额度进行（`GRID_BACKFILL_DAYS`，默认 90 天）。在库副本上用真实 API 验证：Worlds 两场半决赛共 7 局补齐成功。
+- [x] 历史赛程导入：`npm run import:history`（PandaScore，默认 LoL 90 天，止于 48 小时前），只收自动启用联赛和已启用赛事，不结算。库副本实测：读取 710 场、导入 158 场 / 7 个赛事（含 Worlds 八强赛），0 条机器人结算事件；随后 GRID 补齐开始关联这些旧比赛。
   - LoL 选手位置 GRID 只给 id 不给名称，存了补刀拆分 / 出装，阶段 4 再推断上中下打野辅助。
   - 不存镀层数：GRID 计数口径不明。
 - [x] 阶段 4：比赛详情「每局数据」。LoL：BP（英雄头像，禁用灰显）、队伍对比条、5v5 选手表（位置按野区补刀 / 总补刀 / 英雄定位推断）、出装图标；CS2 / Valorant：每图记分板。英雄 / 装备图标与中文名来自 Data Dragon，服务端缓存。

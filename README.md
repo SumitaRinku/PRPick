@@ -280,6 +280,7 @@ BOT_ADMIN_QQ_IDS=管理员QQ号
 | `npm start` | 启动服务（`npm run dev` 同效） |
 | `npm run init-db` | 建表、执行迁移、创建默认管理员（`npm run migrate` 同效） |
 | `npm run sync:pandascore` | 手动同步一次比赛 |
+| `npm run import:history -- --game lol --days 90` | 一次性导入历史比赛（常规同步只拉 48 小时前到未来 7 天）。只收注册表自动启用的联赛和已启用赛事，不结算、不发群播报，可重复运行；之后 GRID 历史补齐会给这些比赛配上每局数据 |
 | `npm run backup` | 在线备份数据库 |
 | `npm run restore -- <file>` | 从备份恢复数据库 |
 | `npm run cleanup:pandascore-duplicates` | 清理历史重复数据（默认 dry-run） |

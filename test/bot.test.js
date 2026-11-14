@@ -524,3 +524,50 @@ test('real schema and sync insert/update confirm source times and isolate partia
         assert.equal(row.match_time, '2026-09-22T11:00:00.000Z');
     } finally { db.close(); }
 });
+
+test('history import keeps shown leagues only, skips settlement and the recent window', async () => {
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    let settled = 0;
+    const requests = [];
+    const load = (relative, extra = {}) => {
+        const filename = path.resolve(__dirname, '..', relative);
+        const nativeRequire = createRequire(filename);
+        const module = { exports: {} };
+        const context = { module, console: { log() {}, error() {}, warn() {} }, URL, AbortController, setTimeout, clearTimeout,
+            process: { env: { ADMIN_PASSWORD: 'test-only-password', PANDASCORE_API_TOKEN: 'test-only-token', PANDASCORE_BRACKET_SYNC_ENABLED: 'false' } },
+            require(name) {
+                if (['./database', '../config/database'].includes(name)) return db;
+                if (name === '../utils/settlement') return { settleMatch: () => { settled++; return { changed: false }; }, recalculateUserScores() {} };
+                return nativeRequire(name);
+            }, ...extra };
+        vm.runInNewContext(fs.readFileSync(filename, 'utf8'), context, { filename });
+        return module.exports;
+    };
+    const match = (id, league, serie, a, b) => ({ id, status: 'finished', scheduled_at: '2026-10-20T10:00:00Z', winner_id: a,
+        serie: { id: serie, full_name: '2026' }, league: { id: serie, name: league },
+        results: [{ team_id: a, score: 3 }, { team_id: b, score: 1 }],
+        opponents: [{ opponent: { id: a, name: `Team ${a}` } }, { opponent: { id: b, name: `Team ${b}` } }] });
+    try {
+        load('server/config/init-db.js').ensureDatabase();
+        const service = load('server/services/pandascoreService.js', { fetch: async url => {
+            requests.push(String(url));
+            return { ok: true, json: async () => [match(1, 'Worlds', 10, 1, 2), match(2, 'LCK Challengers League', 11, 3, 4), match(3, 'Some Cup', 12, 5, 6)] };
+        } });
+        // Some Cup 已被管理员启用 → 也导入；LCK CL 未启用 → 不导入
+        db.prepare(`INSERT INTO tournaments (name, game_type, is_active, external_source, external_id) VALUES ('Some Cup 2026', 'lol', 1, 'pandascore', 'lol:12')`).run();
+        const now = Date.parse('2026-11-14T00:00:00Z');
+        const result = await service.importPandascoreHistory({ games: ['lol'], days: 30, now });
+        assert.equal(result.games.lol.fetched, 3);
+        assert.equal(result.games.lol.imported, 2);
+        const rows = db.prepare('SELECT m.status, m.team1_score, m.team2_score, t.name, t.is_active FROM matches m JOIN tournaments t ON t.id = m.tournament_id ORDER BY m.id').all();
+        assert.deepEqual(rows.map(r => [r.name, r.status, r.team1_score, r.team2_score, r.is_active]),
+            [['Worlds 2026', 'finished', 3, 1, 1], ['Some Cup 2026', 'finished', 3, 1, 1]]);
+        assert.equal(settled, 0, 'history must not settle (no bot settlement broadcasts)');
+        assert.equal(db.prepare('SELECT count(*) n FROM bot_sync_state').get().n, 0);
+        assert.match(requests[0], /\/lol\/matches/);
+        assert.ok(requests[0].includes(`range[begin_at]=${new Date(now - 30 * 86400000).toISOString()},${new Date(now - 48 * 3600000).toISOString()}`));
+        assert.equal(service.syncStatus().last_run, null, 'history runs stay out of the regular sync status');
+        await assert.rejects(service.importPandascoreHistory({ games: ['dota'] }), /未知游戏/);
+    } finally { db.close(); }
+});

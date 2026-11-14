@@ -418,11 +418,17 @@ async function syncTournamentPreviews() {
     }
 }
 
+function tournamentExternalId(match) {
+    const serie = match.serie || {};
+    const league = match.league || {};
+    return `${match.__gameType || 'cs2'}:${serie.id || league.id || match.serie_id || match.league_id}`;
+}
+
 function upsertTournament(match, now) {
     const gameType = match.__gameType || 'cs2';
     const serie = match.serie || {};
     const league = match.league || {};
-    const externalId = `${gameType}:${serie.id || league.id || match.serie_id || match.league_id}`;
+    const externalId = tournamentExternalId(match);
 
     // PandaScore 三层结构：league（赛事品牌，如 "ESL Pro League"）> serie（届/赛季，
     // full_name 通常只是 "Season 21 2026" 甚至 "2026"）> tournament（阶段）。
@@ -886,6 +892,89 @@ async function syncPandascoreMatches(mode = 'manual') {
     }
 }
 
+// ===== 历史赛程导入（一次性，命令行运行）=====
+// 常规同步只拉「48 小时前 → 未来 7 天」，上线前的比赛不会进库，GRID 历史补齐也就无从关联。
+// 这里补拉 [now - days, now - 48h] 的比赛，只收会展示的赛事：注册表 autoActivateLeagues 里的联赛，
+// 以及库里已启用的赛事；其余小联赛不入库（未启用的过期赛事本来也会被自动清理）。
+// 只写比赛和赛果，不结算：旧比赛没有竞猜，结算只会产生「本群无人竞猜」的机器人播报。
+// 48 小时内的比赛留给常规同步，避免两边交叉。
+const HISTORY_RECENT_MS = 48 * 60 * 60 * 1000;
+const HISTORY_MAX_PAGES = 40;
+const HISTORY_PAGE_DELAY_MS = 1000;
+
+async function fetchHistoryMatches(gameType, startMs, endMs) {
+    const game = GAMES[gameType];
+    const range = `${new Date(startMs).toISOString()},${new Date(endMs).toISOString()}`;
+    const rows = [];
+    for (let page = 1; page <= HISTORY_MAX_PAGES; page++) {
+        if (page > 1) await delay(HISTORY_PAGE_DELAY_MS);
+        const data = await fetchJson(game.endpoint, { 'page[number]': page, 'page[size]': PER_PAGE, 'range[begin_at]': range, sort: 'begin_at' });
+        if (!Array.isArray(data)) throw new Error('PandaScore 返回了非数组赛程');
+        rows.push(...data.map(row => ({ ...row, __gameType: gameType })));
+        console.log(`[PandaScore][history] ${game.label} 第 ${page} 页 ${data.length} 条`);
+        if (data.length < PER_PAGE) return rows;
+    }
+    throw new Error(`${game.label} 历史比赛超过 ${HISTORY_MAX_PAGES} 页，请缩短天数分批导入`);
+}
+
+function historyWanted(match) {
+    if (autoActivates(match.__gameType, match.league?.name || '')) return true;
+    const row = db.prepare('SELECT is_active FROM tournaments WHERE external_source = ? AND external_id = ?').get(SOURCE, tournamentExternalId(match));
+    return row?.is_active === 1;
+}
+
+async function importPandascoreHistory({ games = ['lol'], days = 90, now = Date.now() } = {}) {
+    const unknown = games.filter(game => !GAMES[game]);
+    if (unknown.length) throw new Error(`未知游戏：${unknown.join(', ')}`);
+    if (!(days > 2 && days <= 365)) throw new Error('days 需在 3–365 之间');
+    if (running) return { status: 'skipped', message: '已有同步任务正在运行' };
+    running = true;
+    const run = db.prepare('INSERT INTO sync_runs (source, mode, status) VALUES (?, ?, ?)').run(SOURCE, 'history', 'running');
+    try {
+        const start = now - days * 86400000;
+        const end = now - HISTORY_RECENT_MS;
+        const summary = { status: 'success', games: {}, matches_upserted: 0 };
+        const stageCache = new Map();
+        const stamp = new Date(now).toISOString();
+        for (const gameType of games) {
+            const rows = await fetchHistoryMatches(gameType, start, end);
+            const wanted = rows.filter(historyWanted);
+            const tournaments = new Set();
+            let upserted = 0;
+            db.transaction(() => {
+                for (const row of wanted) {
+                    const result = upsertMatch(row, stamp, stageCache);
+                    if (result.skipped) continue;
+                    upserted++;
+                    tournaments.add(tournamentExternalId(row));
+                }
+            })();
+            summary.games[gameType] = { fetched: rows.length, imported: upserted, tournaments: tournaments.size };
+            summary.matches_upserted += upserted;
+        }
+        // 导入阶段的官方赛程图（只限已启用赛事，与常规同步同一套逻辑）
+        let brackets = { synced: 0, failed: 0, errors: [] };
+        if (bracketSyncEnabled()) {
+            const candidates = stageBracketCandidates([...stageCache.keys()], stamp);
+            if (candidates.length) brackets = await syncStageBrackets(candidates, stamp);
+        }
+        summary.brackets_synced = brackets.synced;
+        summary.brackets_failed = brackets.failed;
+        summary.message = `历史导入完成（${days} 天）：` + Object.entries(summary.games)
+            .map(([game, g]) => `${GAMES[game].label} 读取 ${g.fetched} 场，导入 ${g.imported} 场 / ${g.tournaments} 个赛事`).join('；')
+            + `；Bracket ${brackets.synced} 个阶段${brackets.failed ? `，失败 ${brackets.failed} 个` : ''}`;
+        db.prepare(`UPDATE sync_runs SET status = 'success', message = ?, finished_at = CURRENT_TIMESTAMP, matches_upserted = ? WHERE id = ?`)
+            .run(summary.message, summary.matches_upserted, run.lastInsertRowid);
+        console.log(`[PandaScore] ${summary.message}`);
+        return summary;
+    } catch (error) {
+        db.prepare(`UPDATE sync_runs SET status = 'failed', message = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?`).run(error.message, run.lastInsertRowid);
+        throw error;
+    } finally {
+        running = false;
+    }
+}
+
 function syncStatus() {
     return {
         enabled: process.env.PANDASCORE_SYNC_ENABLED !== 'false',
@@ -902,7 +991,7 @@ function syncStatus() {
         bracket_last_synced_at: db.prepare('SELECT MAX(bracket_synced_at) last_at FROM tournament_stages WHERE external_source = ?').get(SOURCE)?.last_at || null,
         running,
         // 比赛同步与赛事预告分开记录，避免预告任务覆盖比赛同步状态
-        last_run: db.prepare("SELECT * FROM sync_runs WHERE mode IS NULL OR mode != 'preview' ORDER BY started_at DESC LIMIT 1").get() || null,
+        last_run: db.prepare("SELECT * FROM sync_runs WHERE mode IS NULL OR mode NOT IN ('preview', 'history') ORDER BY started_at DESC LIMIT 1").get() || null,
         preview_last_run: db.prepare("SELECT * FROM sync_runs WHERE mode = 'preview' ORDER BY started_at DESC LIMIT 1").get() || null
     };
 }
@@ -926,4 +1015,4 @@ function startPandascoreSyncService() {
     console.log(`[PandaScore] sync enabled every ${intervalMs() / 1000}s; preview every ${previewIntervalMs() / 1000}s`);
 }
 
-module.exports = { syncPandascoreMatches, syncTournamentPreviews, syncStatus, startPandascoreSyncService };
+module.exports = { syncPandascoreMatches, syncTournamentPreviews, importPandascoreHistory, syncStatus, startPandascoreSyncService };
