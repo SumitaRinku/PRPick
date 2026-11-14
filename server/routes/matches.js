@@ -81,7 +81,10 @@ router.get('/', optionalAuth, (req, res) => {
         params.push(tournament_id);
     }
 
-    const matches = db.prepare(`${matchSelect(where)} ORDER BY m.match_time ASC LIMIT 200`).all(...params);
+    // order=desc + limit：首页空状态取「最近赛果」用；默认按时间正序、最多 200 场
+    const order = req.query.order === 'desc' ? 'DESC' : 'ASC';
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 200, 1), 200);
+    const matches = db.prepare(`${matchSelect(where)} ORDER BY m.match_time ${order} LIMIT ${limit}`).all(...params);
     attachConsensus(matches);
     attachLiveScores(matches);
     if (req.user) {
@@ -93,7 +96,7 @@ router.get('/', optionalAuth, (req, res) => {
     // Add data freshness indicator
     const MAX_STALE_MS = 3600000; // 1 hour
     const lastSync = db.prepare(`
-        SELECT MAX(last_synced_at) last_synced_at
+        SELECT MAX(m.last_synced_at) last_synced_at
         FROM matches m
         JOIN tournaments t ON t.id = m.tournament_id
         WHERE t.game_type = ?

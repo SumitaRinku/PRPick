@@ -417,6 +417,48 @@ function renderHomeFilters(filters) {
     const finishedDays = filters.finished_window_days || 1;
     const finishedWindow = finishedDays === 1 ? '最近 24 小时' : `最近 ${finishedDays} 天`;
     if (matchFilterSummaryEl) matchFilterSummaryEl.textContent = `未结束比赛 + ${finishedWindow}已结束比赛`;
+    // 范围说明放到场数的悬浮提示里（工具条不再单独占一行）
+    if (matchResultsMetaEl) matchResultsMetaEl.title = `范围：未结束比赛 + ${finishedWindow}已结束比赛`;
+}
+
+// 首页时间窗内一场比赛都没有（休赛期）：给出最近赛果和即将开始的赛事，而不是一块空白
+let quietToken = 0;
+async function renderHomeQuiet() {
+    const token = ++quietToken;
+    const game = state.game;
+    const label = gameName(game);
+    matchesEl.innerHTML = `<div class="home-quiet"><div class="home-quiet-head"><h3>${escapeHtml(label)}近期没有比赛</h3><p>未来 7 天内暂无已排定的比赛，下面是最近的赛果和即将开始的赛事。</p></div><div class="home-quiet-body"><p class="home-quiet-loading">加载中…</p></div></div>`;
+    const gameQuery = game && game !== 'all' ? `&game_type=${encodeURIComponent(game)}` : '';
+    const [recent, previews] = await Promise.all([
+        api(`/matches?status=finished&order=desc&limit=6${gameQuery}`).catch(() => ({ matches: [] })),
+        api(`/tournaments/previews?${gameQuery.slice(1)}`).catch(() => ({ previews: [] }))
+    ]);
+    if (token !== quietToken || state.matches.length || state.game !== game) return;
+    const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}/${d.getDate()}`; };
+    const short = (name, fallback) => escapeHtml(name || fallback || '');
+    const resultRow = m => {
+        const w1 = m.winner_team_id && Number(m.winner_team_id) === Number(m.team1_id);
+        const w2 = m.winner_team_id && Number(m.winner_team_id) === Number(m.team2_id);
+        return `<button type="button" class="home-quiet-row" onclick="openMatchDetail(${Number(m.id)})">
+            <span class="hq-date">${day(m.match_time)}</span>
+            <span class="hq-tour">${tournamentLogo(m.tournament_name, m.game_type, m.tournament_logo_url)}<span>${short(m.tournament_short_name, m.tournament_name)}</span></span>
+            <span class="hq-team ${w1 ? 'won' : ''}">${short(m.team1_short_name, m.team1_name)}</span>
+            <b class="hq-score">${m.team1_score ?? '-'} : ${m.team2_score ?? '-'}</b>
+            <span class="hq-team right ${w2 ? 'won' : ''}">${short(m.team2_short_name, m.team2_name)}</span>
+        </button>`;
+    };
+    const soon = (previews.previews || []).filter(p => Date.parse(p.begin_at) > Date.now()).slice(0, 5);
+    const previewRow = p => `<div class="home-quiet-row static">
+        <span class="hq-date">${day(p.begin_at)}</span>
+        <span class="hq-tour">${tournamentLogo(p.name, p.game_type)}<span>${escapeHtml(p.name)}</span></span>
+        <span class="hq-note">${p.end_at ? `至 ${day(p.end_at)}` : ''}</span>
+    </div>`;
+    const body = matchesEl.querySelector('.home-quiet-body');
+    if (!body) return;
+    body.innerHTML = `
+        <section><h4>最近赛果</h4>${(recent.matches || []).length ? recent.matches.map(resultRow).join('') : '<p class="home-quiet-none">暂无赛果</p>'}</section>
+        <section><h4>即将开始的赛事</h4>${soon.length ? soon.map(previewRow).join('') : '<p class="home-quiet-none">暂无已公布的赛事</p>'}
+            <a class="home-quiet-more" href="/tournaments.html${game && game !== 'all' ? `?game=${encodeURIComponent(game)}` : ''}">去赛事回看 ›</a></section>`;
 }
 
 function statusLabel(value) {
@@ -436,7 +478,11 @@ function renderMatchResults(opts = {}) {
     if (clearMatchFiltersEl) clearMatchFiltersEl.hidden = !state.status && !state.tournament;
     matchesEl.classList.toggle('grouped', !state.tournament);
     if (!state.matches.length) {
-        matchesEl.innerHTML = '<div class="empty-state"><h3>当前筛选下暂无比赛</h3><p>请切换状态或赛事。</p></div>';
+        if (state.status || state.tournament) {
+            matchesEl.innerHTML = '<div class="empty-state"><h3>当前筛选下暂无比赛</h3><p>换个状态或赛事看看。</p><button type="button" class="button ghost" onclick="clearMatchFilters()">清除筛选</button></div>';
+            return;
+        }
+        renderHomeQuiet();
         return;
     }
     if (state.tournament) {

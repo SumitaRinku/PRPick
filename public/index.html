@@ -26,37 +26,25 @@
             </div>
             <div id="userPanel"></div>
         </nav>
-        <section>
-            <h1>比赛竞猜</h1>
-            <p>按状态和赛事快速找到目标比赛。</p>
-        </section>
     </header>
 
     <main class="layout home-layout">
         <section class="maincol">
-            <section class="home-match-browser" aria-label="比赛筛选">
-                <div class="home-browser-head">
-                    <div>
-                        <h2>比赛与赛事</h2>
-                        <p id="matchFilterSummary">按状态和赛事筛选比赛。</p>
-                    </div>
-                    <div class="game-switch" id="gameSwitch" role="tablist" aria-label="筛选游戏" data-game-switch data-role="tab"></div>
-                </div>
+            <h1 class="sr-only">比赛竞猜</h1>
+            <!-- 首页筛选：游戏 / 状态 / 赛事一行排开，比赛列表紧跟其后 -->
+            <section class="home-match-browser home-toolbar" aria-label="比赛筛选">
+                <div class="game-switch" id="gameSwitch" role="tablist" aria-label="筛选游戏" data-game-switch data-role="tab"></div>
                 <div id="statusFilters" class="match-status-tabs" role="group" aria-label="比赛状态"></div>
-                <div class="home-tournament-filter">
-                    <div class="filter-label"><strong>赛事</strong></div>
-                    <div id="tournamentFilters" class="tournament-filter-list"></div>
-                    <select id="tournamentFilter" aria-label="筛选赛事" onchange="setTournament(this.value)">
-                        <option value="">全部赛事</option>
-                    </select>
-                </div>
-            </section>
-            <div class="match-results-head">
-                <div><h2 id="matchResultsTitle">全部比赛</h2><p id="matchResultsMeta"></p></div>
-                <div class="match-results-actions">
+                <select id="tournamentFilter" class="home-tournament-select" aria-label="筛选赛事" onchange="setTournament(this.value)">
+                    <option value="">全部赛事</option>
+                </select>
+                <div class="home-toolbar-meta">
+                    <span id="matchResultsMeta" title=""></span>
                     <button id="clearMatchFilters" class="button ghost" type="button" onclick="clearMatchFilters()" hidden>清除筛选</button>
                 </div>
-            </div>
+                <h2 id="matchResultsTitle" class="sr-only">全部比赛</h2>
+                <p id="matchFilterSummary" class="sr-only">按状态和赛事筛选比赛。</p>
+            </section>
             <div id="homeBracket" class="home-bracket" hidden></div>
             <div id="matches" class="grid"></div>
         </section>

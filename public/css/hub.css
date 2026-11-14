@@ -49,7 +49,7 @@
 .th-card-meta em.th-upcoming{color:var(--pick-text);font-weight:900}
 
 .th-grid.th-enter .th-card{animation:thCardIn .22s ease both}
-@keyframes thCardIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes thCardIn{from{transform:translateY(5px)}to{transform:none}}
 .th-loading{padding:26px 0;text-align:center;color:var(--text-secondary);font-size:12px;font-weight:700;border:1px dashed var(--border-color);background:var(--surface-3)}
 .th-empty{padding:22px 14px;text-align:center;color:var(--text-secondary);font-size:12px;font-weight:700}
 .th-empty-lg{grid-column:1/-1;padding:44px 16px;border:1px dashed var(--border-color);background:var(--surface-3)}

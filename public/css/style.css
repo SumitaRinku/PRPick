@@ -1082,11 +1082,10 @@ body{display:flex;flex-direction:column}
 .prediction-form .link-btn.danger:hover{background:#f3e0e4;border-color:#c98a92}
 
 /* === 轻量动画（全部 transform/opacity，GPU 友好；prefers-reduced-motion 时整体关闭） === */
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* 入场只做轻微位移、不改透明度：内容第一帧就可见。后台标签页不播放动画，带 opacity:0 的入场会让页面一直空白 */
+@keyframes fadeUp{from{transform:translateY(6px)}to{transform:none}}
 @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.72)}}
 @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
-/* 页面载入：hero 与主区块轻微上浮 */
-.hero section,.page-shell,.layout,.admin-shell{animation:fadeUp .32s ease-out}
 /* 列表卡片交错入场：仅前 8 个递增延迟，长列表不等待。
    主页比赛列表加 .anim-in 门控：预测提交等局部刷新不重播动画，只有整页/切游戏加载才入场 */
 .home-layout .grid.anim-in>*,:is(.prediction-list,.archive-list)>*{animation:fadeUp .32s ease-out backwards}
