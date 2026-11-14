@@ -221,11 +221,10 @@ router.get('/team-logo', async (req, res) => {
 });
 
 // LoL 英雄 / 装备图标（Data Dragon）。只接受索引里存在的 id，地址由服务端拼出，不能被当成任意图片跳板。
-// LoL 图标来源：Riot Data Dragon 为主，腾讯国服 CDN（game.gtimg.cn，英雄 / 装备 id 与 Data Dragon 相同）兜底。
-// 国内服务器常连不上 Data Dragon（每次等满约 10 秒连接超时），失败一次后 30 分钟内直接走腾讯源。
+// LoL 图标来源：腾讯国服 CDN（game.gtimg.cn，英雄 / 装备 id 与 Riot Data Dragon 相同）优先，Data Dragon 兜底。
+// 服务器在国内，Data Dragon 经常连不上（每次等满约 10 秒），放在前面会让首次加载的一整页图标都超时。
+// 腾讯源偶发失败重试一次；新英雄 / 新装备腾讯还没上时才去 Data Dragon。
 const LOL_IMAGE_TENCENT = 'https://game.gtimg.cn/images/lol/act/img';
-const DDRAGON_RETRY_MS = 30 * 60 * 1000;
-let ddragonFailedAt = 0;
 
 async function fetchImageBody(url, timeoutMs) {
     const controller = new AbortController();
@@ -244,21 +243,20 @@ async function fetchImageBody(url, timeoutMs) {
 
 async function fetchLolImage(kind, id, ddragonUrl) {
     const tencentUrl = `${LOL_IMAGE_TENCENT}/${kind}/${id}.png`;
-    const skipDdragon = Date.now() - ddragonFailedAt < DDRAGON_RETRY_MS;
-    if (!skipDdragon) {
+    const errors = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
         try {
-            return await fetchImageBody(ddragonUrl, 6000);
+            return await fetchImageBody(tencentUrl, 6000);
         } catch (error) {
-            ddragonFailedAt = Date.now();
-            console.warn(`lol asset: Data Dragon 失败（${error.message}），改用腾讯源`);
+            errors.push(`腾讯 ${error.message}`);
+            if (/HTTP 404/.test(error.message)) break; // 腾讯没有这张图：不必重试
         }
     }
     try {
-        return await fetchImageBody(tencentUrl, TIMEOUT_MS);
+        return await fetchImageBody(ddragonUrl, 8000);
     } catch (error) {
-        // 腾讯源缺新英雄 / 新装备时，最后再试一次 Data Dragon
-        if (skipDdragon) return fetchImageBody(ddragonUrl, TIMEOUT_MS);
-        throw error;
+        errors.push(`Data Dragon ${error.message}`);
+        throw new Error(errors.join('；'));
     }
 }
 

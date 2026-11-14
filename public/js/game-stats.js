@@ -21,8 +21,14 @@ function loadLolAssets() {
 const champInfo = name => gameStats.assets?.champions?.[gsNorm(name)] || null;
 const champLabel = name => champInfo(name)?.zh || name || '?';
 
-// 图片加载失败时换成文字块
+// 图片加载失败：先隔 2 秒重试一次（服务器首次回源可能失败），再失败才换成文字块
 function gsIconFallback(img) {
+    if (!img.dataset.retried) {
+        img.dataset.retried = '1';
+        const src = img.getAttribute('src') || '';
+        setTimeout(() => { img.src = src + (src.includes('?') ? '&' : '?') + 'retry=1'; }, 2000);
+        return;
+    }
     const span = document.createElement('span');
     span.className = `${img.className} gs-icon-text`;
     span.title = img.title;
