@@ -6,7 +6,17 @@ const RETENTION_MS = 14 * 86400000;
 
 const WINS_NEEDED = { BO1: 1, BO3: 2, BO5: 3 };
 
-function captureMapResults(db, { matchId, previousGames, games, firstPoll, seriesFinished, nowMs = Date.now() }) {
+// 下一张图：BP 里第 N+1 个选出的地图（pick / decider），连同选图方与先手边。
+// 没有 BP 数据（如 LoL，或 GRID 尚未给出）时返回 null。
+function nextMapOf(veto, sequence) {
+    const picks = (Array.isArray(veto) ? veto : []).filter(entry => entry && entry.type !== 'ban' && entry.map);
+    const next = picks[sequence];
+    if (!next) return null;
+    return { sequence: sequence + 1, name: next.map, type: next.type, team: next.team || null,
+        side: next.side && next.side.team && next.side.side ? { team: next.side.team, side: next.side.side } : null };
+}
+
+function captureMapResults(db, { matchId, previousGames, games, veto = [], firstPoll, seriesFinished, nowMs = Date.now() }) {
     if (firstPoll) return 0;
     const finishedBefore = new Set(previousGames.filter(g => g.status === 'finished').map(g => g.sequence));
     const fresh = games.filter(g => g.status === 'finished' && g.winner && !finishedBefore.has(g.sequence));
@@ -32,7 +42,9 @@ function captureMapResults(db, { matchId, previousGames, games, firstPoll, serie
                 team1_name: m.team1_name, team2_name: m.team2_name },
             map: { sequence: game.sequence, name: game.mapName, team1_rounds: game.team1Rounds,
                 team2_rounds: game.team2Rounds, winner: game.winner },
-            series: { team1, team2, wins_needed: needed, decided }
+            series: { team1, team2, wins_needed: needed, decided },
+            // 系列赛未分胜负时预告下一张图（群播报里的「下一图」）
+            next_map: decided || (seriesFinished && isLast) ? null : nextMapOf(veto, game.sequence)
         };
         added += insert.run(matchId, game.sequence, JSON.stringify(payload), nowMs).changes;
     }
@@ -40,4 +52,4 @@ function captureMapResults(db, { matchId, previousGames, games, firstPoll, serie
     return added;
 }
 
-module.exports = { captureMapResults, WINS_NEEDED };
+module.exports = { captureMapResults, nextMapOf, WINS_NEEDED };

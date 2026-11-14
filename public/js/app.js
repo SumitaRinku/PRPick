@@ -81,6 +81,7 @@ function renderUser() {
     const toggle = document.getElementById('themeToggle');
     if (!state.user) {
         userPanelEl.innerHTML = `
+            <button type="button" class="auth-toggle" aria-expanded="false" onclick="const p=this.parentElement;const open=p.classList.toggle('auth-open');this.setAttribute('aria-expanded',open);if(open)p.querySelector('#username').focus()">登录</button>
             <form class="auth-form" onsubmit="event.preventDefault();login()">
                 <div class="auth-fields">
                     <input id="username" placeholder="用户名" autocomplete="username">

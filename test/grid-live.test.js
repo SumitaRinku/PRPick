@@ -277,7 +277,11 @@ test('map results become one bot event each, skipping maps already finished on t
     const game = (seq, map, winner, r1, r2) => ({ sequenceNumber: seq, started: true, finished: !!winner, map: { name: map },
         // GRID id 51814 = NAVI = local team1; 52389 = PARIVISION = local team2.
         teams: [{ id: '51814', won: winner === 'navi', score: r1 }, { id: '52389', won: winner === 'pari', score: r2 }] });
-    let state = { ...liveState, games: [game(1, 'mirage', 'navi', 13, 9), game(2, 'dust2', null, 6, 4)] };
+    // BP：NAVI 选 Mirage，PARI 选 Dust2（NAVI 先手 CT），Ancient 决胜
+    const act = (seq, type, drafter, name, kind = 'map') => ({ type, sequenceNumber: seq, drafter: drafter ? { id: drafter, type: 'team' } : { id: 's', type: 'series' }, draftable: { type: kind, name } });
+    const draftActions = [act(1, 'ban', '51814', 'nuke'), act(2, 'ban', '52389', 'train'), act(3, 'pick', '51814', 'de_mirage'), act(4, 'pick', '52389', 'de_dust2'),
+        act(5, 'pick', '51814', 'ct', 'side'), act(6, 'ban', '51814', 'inferno'), act(7, 'ban', '52389', 'overpass'), act(8, 'pick', null, 'de_ancient')];
+    let state = { ...liveState, draftActions, games: [game(1, 'mirage', 'navi', 13, 9), game(2, 'dust2', null, 6, 4)] };
     const { db, service, soon } = fixture({
         central: () => jsonResponse({ data: { allSeries: { pageInfo: { hasNextPage: false }, edges: [{ node: gridSeries(900, soon, [['52389', 'Parivision'], ['51814', 'Natus Vincere']]) }] } } }),
         state: () => jsonResponse({ data: { seriesState: state } })
@@ -293,10 +297,12 @@ test('map results become one bot event each, skipping maps already finished on t
     assert.deepEqual(events().map(e => [e.map.sequence, e.map.name, e.map.team1_rounds, e.map.team2_rounds, e.map.winner]), [[2, 'dust2', 11, 13, 'team2']]);
     assert.deepEqual(events()[0].series, { team1: 1, team2: 1, wins_needed: 2, decided: false });
     assert.equal(events()[0].match.team1_name, 'Natus Vincere');
+    assert.deepEqual(events()[0].next_map, { sequence: 3, name: 'ancient', type: 'decider', team: null, side: null });
 
     state = { ...state, finished: true, games: [...state.games, game(3, 'ancient', 'navi', 13, 5)] };
     await service.runGridLiveTick('manual');
     assert.deepEqual(events()[1].series, { team1: 2, team2: 1, wins_needed: 2, decided: true });
+    assert.equal(events()[1].next_map, null, 'no next map once the series is decided');
 });
 
 // ===== 多游戏：按游戏用各自的 titleId / token，限额按 token 计 =====

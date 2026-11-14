@@ -164,10 +164,24 @@ function fetchImage(url, redirects = 0) {
                 });
             });
 
-            request.on('timeout', () => request.destroy(new Error('Logo request timed out')));
+            request.on('timeout', () => request.destroy(Object.assign(new Error('Logo request timed out'), { code: 'ETIMEDOUT' })));
             request.on('error', reject);
         }, reject);
     });
+}
+
+// 源站 CDN 偶尔断连（TLS 握手中断、ECONNRESET、超时）：网络层错误重试，HTTP 4xx / 非图片等确定性错误不重试
+const LOGO_ATTEMPTS = 3;
+async function fetchImageWithRetry(url) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await fetchImage(url);
+        } catch (error) {
+            const transient = Boolean(error.code) || /socket|TLS|timed out/i.test(error.message);
+            if (!transient || attempt >= LOGO_ATTEMPTS) throw error;
+            await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+        }
+    }
 }
 
 router.get('/team-logo', async (req, res) => {
@@ -189,7 +203,7 @@ router.get('/team-logo', async (req, res) => {
     try {
         let image = await readLogoCache(rawUrl);
         if (!image) {
-            image = await fetchImage(rawUrl);
+            image = await fetchImageWithRetry(rawUrl);
             await writeLogoCache(rawUrl, image);
         }
         res.set({

@@ -443,7 +443,7 @@ function applySeriesState(link, state, now, { backfill = false } = {}) {
         writeGameStats(link, state, team1GridId, team2GridId, now);
         // 刚结束的地图记为群播报事件；关联后的首次轮询只作基线。
         if (!backfill) {
-            captureMapResults(db, { matchId: link.match_id, previousGames, games: oriented.games,
+            captureMapResults(db, { matchId: link.match_id, previousGames, games: oriented.games, veto: oriented.veto,
                 firstPoll: !link.last_polled_at, seriesFinished: oriented.finished, nowMs: Date.parse(now) });
         }
     });

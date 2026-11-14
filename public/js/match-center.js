@@ -91,6 +91,16 @@ function matchCenterHtml(match) {
                 <span>${teamName(key2)}</span><b title="${gameScoreHint(match.game_type)}">${rounds ?? '-'}</b>
             </div>`;
         };
+        // LoL 每局都是同一张图，没有地图示意图可放：压成一行「第 N 局  BLG 18 : 6 T1」
+        if (roundless) {
+            const side = key2 => `<span class="mc-game-team ${game?.winner === key2 ? 'won' : game?.winner ? 'lost' : ''}">${teamName(key2)}</span>`;
+            const kills = key2 => `<b class="${game?.winner === key2 ? 'won' : ''}">${game?.[`${key2}_rounds`] ?? '-'}</b>`;
+            return `<div class="mc-game ${state}">
+                <strong>${escapeSharedHtml(gameSlotLabel(match.game_type, game || { sequence: '?' }))}</strong>
+                <span class="mc-game-line">${side('team1')}${kills('team1')}<em>:</em>${kills('team2')}${side('team2')}</span>
+                ${stateNote || '<small>击杀</small>'}
+            </div>`;
+        }
         return `<div class="mc-map ${state}">
             <div class="mc-map-art ${art ? '' : 'no-art'}"${art}>
                 <strong>${escapeSharedHtml(game ? gameSlotLabel(match.game_type, game) : mapLabel(row.map))}</strong>
@@ -125,7 +135,7 @@ function matchCenterHtml(match) {
             <div class="mc-hero-center">${scoreHtml}<span class="mc-status ${isFinished ? 'finished' : live.started ? 'live' : ''}">${statusLabel}</span></div>
             ${heroTeam('team2')}
         </div>
-        ${maps ? `<section class="mc-section"><h3>${roundless ? '对局' : '地图'}</h3><div class="mc-maps">${maps}</div></section>` : ''}
+        ${maps ? `<section class="mc-section"><h3>${roundless ? '对局' : '地图'}</h3><div class="${roundless ? 'mc-games' : 'mc-maps'}">${maps}</div></section>` : ''}
         ${veto ? `<section class="mc-section"><h3>BP 流程</h3><ol class="mc-veto">${veto}</ol></section>` : ''}
         ${live.has_stats ? `<section class="mc-section"><h3>${roundless ? '每局数据' : '每图数据'}</h3><div class="gs-host" data-mc-stats><div class="rv-md-loading">加载中…</div></div></section>` : ''}
         <p class="mc-source">${roundless ? `每${unit}比分为击杀数，` : ''}${roundless ? '对局' : '地图'}与 BP 数据来自 GRID Open Access，仅供展示，结算以官方赛果为准。</p>

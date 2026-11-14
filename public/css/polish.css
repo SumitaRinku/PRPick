@@ -412,6 +412,19 @@ html[data-theme=dark] .hh-hero-logo{background:rgba(0,0,0,.18);border-color:var(
 .mc-live{color:var(--live);display:inline-flex;align-items:center;gap:4px}
 .mc-live::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:polishPulse 1.6s ease-out infinite}
 .mc-pending{opacity:.8}
+/* LoL 对局：一行一局，无地图示意图 */
+.mc-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}
+.mc-game{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--radius-ctl);border:1px solid var(--border-soft);background:var(--surface-input);font-size:.86rem}
+.mc-game.ongoing{border-color:color-mix(in srgb,var(--live) 55%,transparent)}
+.mc-game>strong{font-weight:900;color:var(--text-primary);white-space:nowrap}
+.mc-game>small{color:var(--text-secondary);font-size:.7rem;font-weight:700}
+.mc-game-line{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;font-weight:700}
+.mc-game-line em{font-style:normal;color:var(--text-secondary)}
+.mc-game-line b{font-size:1rem;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.mc-game-line b.won{color:var(--success-color)}
+.mc-game-team{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)}
+.mc-game-team.lost{color:var(--text-secondary)}
+.mc-game.upcoming,.mc-game.skipped{opacity:.6}
 .mc-veto{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .mc-veto li{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--radius-ctl);background:var(--surface-input);border:1px solid var(--border-soft);border-left:3px solid var(--danger-color);font-size:.86rem;color:var(--text-primary)}
 .mc-veto li.mc-veto-pick{border-left-color:var(--success-color)}
@@ -479,4 +492,32 @@ html[data-theme=dark] .hh-hero-logo{background:rgba(0,0,0,.18);border-color:var(
 @media(max-width:620px){
   .home-layout .match-card .match-header{padding:9px 12px 6px}
   .home-layout .match-card .match-teams,.home-layout .match-card .consensus,.home-layout .match-card .prediction-form,.card-bar{margin-left:12px;margin-right:12px}
+}
+
+/* ===== 手机顶栏（≤640px）=====
+   第一行：logo + 右侧账号区（未登录只放「登录」按钮，表单点开后以下拉面板出现）+ 主题切换；
+   第二行：五个导航等分整行，当前页用下划线标示，不再横向滚动。 */
+.auth-toggle{display:none}
+@media(max-width:640px){
+  .hero nav{display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"logo user" "links links";align-items:center;gap:8px 10px;position:relative;padding:8px 12px 0!important;min-height:0}
+  .hero nav .brand-logo{grid-area:logo;padding:0;margin:0;display:flex;align-items:center}
+  .hero nav .brand-logo img{height:24px;width:auto}
+  #userPanel{grid-area:user;display:flex!important;justify-content:flex-end;align-items:center;gap:6px;flex-wrap:nowrap!important;min-width:0;width:auto!important}
+  #userPanel .theme-toggle{position:static!important;margin:0!important;width:32px!important;height:32px}
+  #userPanel .auth-toggle{display:inline-flex;align-items:center;min-height:32px;padding:0 14px;font-weight:800}
+  #userPanel .auth-form{display:none!important}
+  #userPanel.auth-open .auth-toggle{background:transparent;color:var(--text-secondary);border:1px solid rgba(255,255,255,.14)}
+  #userPanel.auth-open .auth-form{display:grid!important;grid-template-columns:1fr 1fr;gap:8px;position:absolute;left:12px;right:12px;top:calc(100% - 44px);z-index:40;max-width:none;margin:0;padding:12px;background:var(--header-bg);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-card,8px);box-shadow:0 12px 28px rgba(0,0,0,.4)}
+  #userPanel.auth-open .auth-fields,#userPanel.auth-open .auth-actions{display:contents!important}
+  #userPanel.auth-open .auth-fields input{width:100%;min-height:36px}
+  #userPanel.auth-open .auth-actions button{width:100%;min-height:36px;padding:0}
+  /* 已登录：用户名 + 积分省略显示，按钮保持小号 */
+  #userPanel > span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:.8rem}
+  #userPanel > span .user-role{display:none}
+  #userPanel > button,#userPanel > .button{flex:0 0 auto;min-height:32px;padding:0 10px!important;font-size:.78rem}
+  #userPanel > a.button[href="/admin/"]{font-size:0;display:inline-flex;align-items:center}
+  #userPanel > a.button[href="/admin/"]::after{content:"后台";font-size:.78rem}
+  .hero nav .site-nav{grid-area:links;order:0;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;width:auto;margin:0 -12px;padding:0!important;overflow:visible!important;background:transparent!important;border-top:1px solid rgba(255,255,255,.06)}
+  .hero nav .site-nav a{display:flex;align-items:center;justify-content:center;height:40px!important;padding:0 2px!important;border-radius:0;font-size:.8rem;white-space:nowrap;background:transparent}
+  .hero nav .site-nav a.active{background:transparent!important;color:#fff;box-shadow:inset 0 -3px 0 var(--primary-color)}
 }

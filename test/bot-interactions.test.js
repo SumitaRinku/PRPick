@@ -527,6 +527,17 @@ test('map result text shows the map, series score and what each pick can still a
     assert.doesNotMatch(decided, /alice/);
 });
 
+test('map result previews the next map with who picked it and the starting side', () => {
+    const event = mapEvent(1, []);
+    event.next_map = { sequence: 3, name: 'de_ancient', type: 'pick', team: 'team1', side: { team: 'team2', side: 'ct' } };
+    assert.ok(mapResultText(event).endsWith('大比分 Alpha 1:1 Beta（BO3）\n下一图：第 3 图 Ancient（Alpha 选图，Beta 先手 CT）'));
+    event.next_map = { sequence: 3, name: 'nuke', type: 'decider', team: null, side: null };
+    assert.match(mapResultText(event), /下一图：第 3 图 Nuke（决胜图）$/);
+    const done = mapEvent(1, [], { team1: 0, team2: 2, wins_needed: 2, decided: true });
+    done.next_map = event.next_map;
+    assert.doesNotMatch(mapResultText(done), /下一图/);
+});
+
 test('LoL game results are worded as games with kill scores, not maps with rounds', () => {
     const event = mapEvent(1, []);
     event.match = { ...event.match, game_type: 'lol', format: 'BO5', team1_name: 'T1', team2_name: 'BLG' };

@@ -167,6 +167,16 @@ window.addEventListener('theme-changed', applyTournamentLogoTheme);
 // 暗色失败回退亮色，亮色也失败显示占位（与旧行为一致）。
 function teamLogoError(img) {
     img.onerror = null;
+    // 首次加载时代理可能正赶上源站断连（502）：同一地址稍后再试一次，再走回退
+    if (!img.dataset.retried) {
+        img.dataset.retried = '1';
+        setTimeout(() => {
+            img.onerror = teamLogoError;
+            const src = img.getAttribute('src') || '';
+            img.src = src + (src.includes('?') ? '&' : '?') + 'retry=1';
+        }, 1500);
+        return;
+    }
     if (img.dataset.try === 'dark' && img.dataset.light) {
         img.dataset.try = 'light';
         img.dataset.variant = 'light';

@@ -127,6 +127,14 @@ function mapResultText(event) {
     const lines = [`【${roundless ? '单局' : '地图'}结果】#${m.id} ${clean(m.tournament_name)}`,
         gameLine,
         `大比分 ${clean(m.team1_name)} ${series.team1}:${series.team2} ${clean(m.team2_name)}${m.format ? `（${clean(m.format)}）` : ''}`];
+    // 下一图：第 3 图 Ancient（Alpha 选图，Beta 先手 CT）/ 第 3 图 Nuke（决胜图）
+    const next = !roundless && !series.decided ? event.next_map : null;
+    if (next?.name) {
+        const teamOf = key => clean(key === 'team1' ? m.team1_name : key === 'team2' ? m.team2_name : '');
+        const notes = [next.type === 'decider' ? '决胜图' : next.team ? `${teamOf(next.team)} 选图` : '',
+            next.side?.team ? `${teamOf(next.side.team)} 先手 ${next.side.side === 'ct' ? 'CT' : next.side.side === 't' ? 'T' : clean(next.side.side)}` : ''].filter(Boolean);
+        lines.push(`下一图：第 ${next.sequence} 图 ${mapLabel(next.name)}${notes.length ? `（${notes.join('，')}）` : ''}`);
+    }
     // 比赛已分胜负时不逐人点评，稍后的结算消息会给出得分。
     if (series.decided) lines.push('', '比赛结束，结算稍后推送');
     else if (event.predictions.length) {
