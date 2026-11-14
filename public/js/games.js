@@ -68,4 +68,29 @@ function renderGameSwitches(root) {
     });
 }
 
+// 赛程阶段 / 轮次名中文化（只用于显示，内部分组仍按原文）：
+// "Upper Bracket Quarterfinal 2" → "胜者组四分之一决赛 2"，"Play-In" → "入围赛"。认不出的部分保留原文。
+const STAGE_WORDS = [
+    [/\bupper\s+bracket\b/gi, '胜者组'], [/\blower\s+bracket\b/gi, '败者组'],
+    [/\bgrand[\s-]+finals?\b/gi, '总决赛'], [/\bquarter[\s-]*finals?\b/gi, '四分之一决赛'],
+    [/\bsemi[\s-]*finals?\b/gi, '半决赛'], [/\b(?:3rd|third)[\s-]+place(?:\s+(?:match|decider))?\b/gi, '季军赛'],
+    [/\bfinals?\b/gi, '决赛'], [/\bround\s+of\s+(\d+)\b/gi, '$1 强'], [/\bopening\s+round\b/gi, '首轮'],
+    [/\bround\s+(\d+)\b/gi, '第 $1 轮'], [/\bmatch\s+(\d+)\b/gi, '第 $1 场'],
+    [/\bplay[\s-]?ins?\b/gi, '入围赛'], [/\bgroup\s+stage\b/gi, '小组赛'], [/\bgroup\s+([a-h])\b/gi, '$1 组'],
+    [/\bswiss\s+stage\b/gi, '瑞士轮'], [/\bplayoffs?\b/gi, '季后赛'], [/\bregular\s+season\b/gi, '常规赛'],
+    [/\bknockout\s+stage\b/gi, '淘汰赛'], [/\bopening\s+stage\b/gi, '开幕阶段'], [/\bmain\s+(?:stage|event)\b/gi, '正赛'],
+    [/\belimination\s+match\b/gi, '淘汰赛'], [/\bdecider\s+match\b/gi, '决胜赛'], [/\bopening\s+match\b/gi, '首轮'],
+    [/\bwinners?'?\s+match\b/gi, '胜者赛'], [/\btie-?breakers?\b/gi, '加赛'],
+    [/\bstage\s+(\d+)\b/gi, '第 $1 阶段'], [/\bweek\s+(\d+)\b/gi, '第 $1 周'], [/\bday\s+(\d+)\b/gi, '第 $1 天']
+];
+
+function stageLabel(text) {
+    let out = String(text ?? '');
+    if (!/[a-z]/i.test(out)) return out;
+    for (const [pattern, zh] of STAGE_WORDS) out = out.replace(pattern, zh);
+    // 中文词之间去掉原英文留下的空格："胜者组 四分之一决赛" → "胜者组四分之一决赛"
+    return out.replace(/([一-鿿])\s+(?=[一-鿿第])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+}
+
+if (typeof window !== 'undefined') window.stageLabel = stageLabel;
 if (typeof document !== 'undefined') renderGameSwitches(document);

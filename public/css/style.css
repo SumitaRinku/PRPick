@@ -1085,7 +1085,7 @@ body{display:flex;flex-direction:column}
 /* 入场只做轻微位移、不改透明度：内容第一帧就可见。后台标签页不播放动画，带 opacity:0 的入场会让页面一直空白 */
 @keyframes fadeUp{from{transform:translateY(6px)}to{transform:none}}
 @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.72)}}
-@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes modalIn{from{transform:translateY(12px) scale(.97)}to{transform:none}}
 /* 列表卡片交错入场：仅前 8 个递增延迟，长列表不等待。
    主页比赛列表加 .anim-in 门控：预测提交等局部刷新不重播动画，只有整页/切游戏加载才入场 */
 .home-layout .grid.anim-in>*,:is(.prediction-list,.archive-list)>*{animation:fadeUp .32s ease-out backwards}

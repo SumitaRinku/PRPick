@@ -8,6 +8,8 @@ const state = {
     status: localStorage.getItem('homeStatusFilter') || '',
     filterCounts: { all: 0, finished: 0, ongoing: 0, upcoming: 0 },
     bracketCollapsed: localStorage.getItem('homeBracketCollapsed') !== '0',
+    // 比赛显示方式：cards（默认）/ list（一行一场，信息更密）
+    view: (() => { try { return localStorage.getItem('homeMatchView') === 'list' ? 'list' : 'cards'; } catch { return 'cards'; } })(),
     matchesRequestId: 0,
     bracketRequestId: 0
 };
@@ -313,7 +315,7 @@ function matchCard(match) {
                         <span class="match-format">${escapeHtml(match.format)}</span>
                         <span class="tournament-name" title="${escapeHtml(match.tournament_name || '')}">${tournamentLogo(match.tournament_name, match.game_type, match.tournament_logo_url)}${escapeHtml(match.tournament_name || '')}</span>
                     </div>
-                    <div class="match-sub" title="${escapeHtml(rawStageLabel)}"><span>${escapeHtml(stageLabel)}</span><span>${info.exact}</span></div>
+                    <div class="match-sub" title="${escapeHtml(rawStageLabel)}"><span>${escapeHtml(window.stageLabel ? window.stageLabel(stageLabel) : stageLabel)}</span><span>${info.exact}</span></div>
                 </div>
                 <span class="match-status ${stateInfo.className}"${displayStatus === 'upcoming' ? ` data-countdown="${match.match_time}"` : ''}>${displayStatus === 'upcoming' ? countdownText(match.match_time) : stateInfo.label}</span>
             </div>
@@ -477,6 +479,7 @@ function renderMatchResults(opts = {}) {
     if (matchResultsMetaEl) matchResultsMetaEl.textContent = `${gameName(state.game)}共 ${state.matches.length} 场`;
     if (clearMatchFiltersEl) clearMatchFiltersEl.hidden = !state.status && !state.tournament;
     matchesEl.classList.toggle('grouped', !state.tournament);
+    applyMatchView();
     if (!state.matches.length) {
         if (state.status || state.tournament) {
             matchesEl.innerHTML = '<div class="empty-state"><h3>当前筛选下暂无比赛</h3><p>换个状态或赛事看看。</p><button type="button" class="button ghost" onclick="clearMatchFilters()">清除筛选</button></div>';
@@ -507,6 +510,22 @@ function renderMatchResults(opts = {}) {
         <div class="home-tournament-matches">${group.matches.map(matchCard).join('')}</div>
     </section>`).join('');
 }
+
+function applyMatchView() {
+    matchesEl.classList.toggle('list-view', state.view === 'list');
+    document.querySelectorAll('.home-view-switch [data-view]').forEach(button => {
+        const on = button.dataset.view === state.view;
+        button.classList.toggle('active', on);
+        button.setAttribute('aria-pressed', String(on));
+    });
+}
+
+function setMatchView(view) {
+    state.view = view === 'list' ? 'list' : 'cards';
+    try { localStorage.setItem('homeMatchView', state.view); } catch { /* 隐私模式等：只在本次生效 */ }
+    applyMatchView();
+}
+window.setMatchView = setMatchView;
 
 async function loadLeaderboard() {}
 

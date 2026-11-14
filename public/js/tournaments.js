@@ -390,7 +390,7 @@ function stageTabs(stages) {
             : done ? '<i class="rv-tab-done" aria-label="已完成">✓</i>'
                 : `<small>${metrics.finished}/${metrics.total}</small>`;
         return `<button type="button" role="tab" class="rv-tab ${active ? 'active' : ''}" aria-selected="${active}" data-stage-tab="${escapeHtml(stage.key)}" onclick="selectStage(this.dataset.stageTab)">
-            <span>${escapeHtml(stage.label)}</span>${status}
+            <span>${escapeHtml(stageLabel(stage.label))}</span>${status}
         </button>`;
     }).join('')}</nav>`;
 }
@@ -399,7 +399,7 @@ function roundBlock(group, showTitle) {
     const rows = group.matches || [];
     if (!rows.length) return '';
     return `<section class="rv-round">
-        ${showTitle ? `<h4 class="rv-round-title">${escapeHtml(group.label)}</h4>` : ''}
+        ${showTitle ? `<h4 class="rv-round-title">${escapeHtml(stageLabel(group.label))}</h4>` : ''}
         <div class="rv-match-list">${rows.map(matchRow).join('')}</div>
     </section>`;
 }
@@ -418,7 +418,7 @@ function stagePanel(stage) {
     const showTitles = rounds.length > 1;
     // <details> 保留给机器人截图：它通过 open=true 展开需要的阶段；页面上由标签控制 open。
     return `<details class="tournament-stage-block rv-stage" id="stage-${escapeHtml(stage.key)}" data-stage-key="${escapeHtml(stage.key)}"${stage.key === state.activeStageKey ? ' open' : ''}>
-        <summary class="tournament-stage-head"><h3>${escapeHtml(stage.label)}</h3></summary>
+        <summary class="tournament-stage-head"><h3>${escapeHtml(stageLabel(stage.label))}</h3></summary>
         <div class="tournament-stage-content">
             ${diagram ? `<div class="rv-bracket">${diagram}</div>` : ''}
             <div class="rv-rounds">${rounds.map(group => roundBlock(group, showTitles)).join('')}</div>

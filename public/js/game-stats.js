@@ -135,6 +135,13 @@ function compareRow(label, a, b, format = value => value ?? '-') {
     </div>`;
 }
 
+// 「经济领先 BLG +7.7k」：一眼看出这局的经济差
+function goldLead(names, t1, t2) {
+    if (!Number.isFinite(t1.gold) || !Number.isFinite(t2.gold) || t1.gold === t2.gold) return '';
+    const lead = t1.gold > t2.gold ? 'team1' : 'team2';
+    return `<span>经济领先 ${gsEsc(names[lead])} +${fmtK(Math.abs(t1.gold - t2.gold))}</span>`;
+}
+
 function draftRow(name, side, actions) {
     const bans = actions.filter(a => a.type === 'ban').map(a => champIcon(a.champion, 'ban')).join('');
     const picks = actions.filter(a => a.type === 'pick').map(a => champIcon(a.champion)).join('');
@@ -176,6 +183,8 @@ function lolGameHtml(match, game) {
             <span>第 ${game.sequence} 局${game.status === 'ongoing' ? ' <em class="mc-live">进行中</em>' : ''}</span>
             <span>时长 ${fmtDuration(game.duration_s)}</span>
             ${game.winner ? `<span class="gs-winner">${gsEsc(names[game.winner])} 胜</span>` : ''}
+            <span>击杀 ${t1.kills ?? '-'} : ${t2.kills ?? '-'}</span>
+            ${goldLead(names, t1, t2)}
         </div>
         ${draft.length ? `<div class="gs-draft">${draftRow(names.team1, t1.side, draft.filter(a => a.team === 'team1'))}${draftRow(names.team2, t2.side, draft.filter(a => a.team === 'team2'))}</div>` : ''}
         <div class="gs-compare">
@@ -183,14 +192,16 @@ function lolGameHtml(match, game) {
             ${compareRow('击杀', t1.kills, t2.kills)}
             ${compareRow('经济', t1.gold, t2.gold, fmtK)}
             ${compareRow('推塔', t1.towers, t2.towers)}
-            ${compareRow('小龙', t1.dragons, t2.dragons)}
-            ${(t1.elders || t2.elders) ? compareRow('远古龙', t1.elders, t2.elders) : ''}
             ${compareRow('大龙', t1.barons, t2.barons)}
-            ${compareRow('峡谷先锋', t1.heralds, t2.heralds)}
-            ${compareRow('虚空幼虫', t1.grubs, t2.grubs)}
-            ${compareRow('水晶', t1.inhibitors, t2.inhibitors)}
-            ${compareRow('伤害', t1.damage, t2.damage, fmtK)}
-            ${dragons ? `<p class="gs-dragons"><span>${gsEsc(dragonText(t1.dragon_types)) || '-'}</span><span>${gsEsc(dragonText(t2.dragon_types)) || '-'}</span></p>` : ''}
+            <details class="gs-more"><summary>更多数据（小龙、先锋、幼虫、水晶、伤害）</summary>
+                ${compareRow('小龙', t1.dragons, t2.dragons)}
+                ${(t1.elders || t2.elders) ? compareRow('远古龙', t1.elders, t2.elders) : ''}
+                ${compareRow('峡谷先锋', t1.heralds, t2.heralds)}
+                ${compareRow('虚空幼虫', t1.grubs, t2.grubs)}
+                ${compareRow('水晶', t1.inhibitors, t2.inhibitors)}
+                ${compareRow('伤害', t1.damage, t2.damage, fmtK)}
+                ${dragons ? `<p class="gs-dragons"><span>${gsEsc(dragonText(t1.dragon_types)) || '-'}</span><span>${gsEsc(dragonText(t2.dragon_types)) || '-'}</span></p>` : ''}
+            </details>
         </div>
         ${lolPlayerTable(names.team1, t1.side, game.players?.team1, minutes, game.winner === 'team1')}
         ${lolPlayerTable(names.team2, t2.side, game.players?.team2, minutes, game.winner === 'team2')}
