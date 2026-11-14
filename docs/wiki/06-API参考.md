@@ -72,7 +72,7 @@ Base URL：`/api`。除上传 logo 外均为 JSON 请求/响应。
 
 | 方法 | 路径 | 鉴权 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/lol/:kind/:id` | 🌐 | LoL 英雄（`champion`）/ 装备（`item`）图标，id 必须在 Data Dragon 索引内；回源后落盘缓存到 `data/logo-cache/` |
+| GET | `/lol/:kind/:id` | 🌐 | LoL 英雄（`champion`）/ 装备（`item`）图标，id 必须在 Data Dragon 索引内；先取 Data Dragon，连不上时改用腾讯国服 CDN（`game.gtimg.cn`，id 相同，失败后 30 分钟内直接走腾讯），落盘缓存到 `data/logo-cache/` |
 | GET | `/team-logo?url=...` | 🌐 | 仅代理库内已注册 URL；SSRF 防护（内网拦截、DNS 全记录校验、固定 IP 连接、重定向逐跳校验）；≤2MB / 12s；仅图片；缓存 1 天 + nosniff + CSP |
 
 ## /api/qrcode — 二维码

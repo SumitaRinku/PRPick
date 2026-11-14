@@ -221,6 +221,47 @@ router.get('/team-logo', async (req, res) => {
 });
 
 // LoL 英雄 / 装备图标（Data Dragon）。只接受索引里存在的 id，地址由服务端拼出，不能被当成任意图片跳板。
+// LoL 图标来源：Riot Data Dragon 为主，腾讯国服 CDN（game.gtimg.cn，英雄 / 装备 id 与 Data Dragon 相同）兜底。
+// 国内服务器常连不上 Data Dragon（每次等满约 10 秒连接超时），失败一次后 30 分钟内直接走腾讯源。
+const LOL_IMAGE_TENCENT = 'https://game.gtimg.cn/images/lol/act/img';
+const DDRAGON_RETRY_MS = 30 * 60 * 1000;
+let ddragonFailedAt = 0;
+
+async function fetchImageBody(url, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = Buffer.from(await response.arrayBuffer());
+        const contentType = sniffImageType(body);
+        if (!contentType || body.length > MAX_BYTES) throw new Error('返回的不是图片');
+        return { contentType, body };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function fetchLolImage(kind, id, ddragonUrl) {
+    const tencentUrl = `${LOL_IMAGE_TENCENT}/${kind}/${id}.png`;
+    const skipDdragon = Date.now() - ddragonFailedAt < DDRAGON_RETRY_MS;
+    if (!skipDdragon) {
+        try {
+            return await fetchImageBody(ddragonUrl, 6000);
+        } catch (error) {
+            ddragonFailedAt = Date.now();
+            console.warn(`lol asset: Data Dragon 失败（${error.message}），改用腾讯源`);
+        }
+    }
+    try {
+        return await fetchImageBody(tencentUrl, TIMEOUT_MS);
+    } catch (error) {
+        // 腾讯源缺新英雄 / 新装备时，最后再试一次 Data Dragon
+        if (skipDdragon) return fetchImageBody(ddragonUrl, TIMEOUT_MS);
+        throw error;
+    }
+}
+
 router.get('/lol/:kind/:id', async (req, res) => {
     const { kind, id } = req.params;
     if (!['champion', 'item'].includes(kind) || !/^[A-Za-z0-9]{1,40}$/.test(id)) return res.status(400).json({ error: '参数无效' });
@@ -228,20 +269,10 @@ router.get('/lol/:kind/:id', async (req, res) => {
     const url = imageUrl(assets, kind, id);
     if (!url) return res.status(404).json({ error: '素材不存在' });
     try {
+        // 缓存键固定用 Data Dragon 地址：无论从哪个源取到，都只存一份
         let image = await readLogoCache(url);
         if (!image) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-            try {
-                const response = await fetch(url, { signal: controller.signal });
-                if (!response.ok) throw new Error(`Data Dragon HTTP ${response.status}`);
-                const body = Buffer.from(await response.arrayBuffer());
-                const contentType = sniffImageType(body);
-                if (!contentType || body.length > MAX_BYTES) throw new Error('Data Dragon 返回的不是图片');
-                image = { contentType, body };
-            } finally {
-                clearTimeout(timer);
-            }
+            image = await fetchLolImage(kind, id, url);
             await writeLogoCache(url, image);
         }
         res.set({
