@@ -35,11 +35,7 @@
     <main class="page-shell leaderboard-page">
         <section class="board-filters" aria-label="排行榜筛选">
             <label for="gameFilter">游戏
-            <select id="gameFilter" onchange="setGame(this.value)">
-                <option value="cs2">CS2</option>
-                <option value="valorant">Valorant</option>
-                <option value="">全部游戏</option>
-            </select>
+            <select id="gameFilter" onchange="setGame(this.value)" data-game-switch data-all-label="全部游戏"></select>
             </label>
             <label for="tournamentFilter">统计范围
             <select id="tournamentFilter" onchange="resetLeaderboard()">

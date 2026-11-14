@@ -31,6 +31,24 @@ test('teamSimilarity keeps academy / junior rosters apart', () => {
     assert.ok(teamSimilarity(['Four Magic'], ['Four Magic Gaming']) >= 0.8);
 });
 
+test('LoL team names from GRID match their PandaScore counterparts (real 2026 pairs)', () => {
+    // [PandaScore 名, 缩写] ↔ [GRID 名, GRID 缩写]
+    const pairs = [
+        [['JD Gaming', 'JDG'], ['Beijing JDG Esports', 'JDG']],
+        [['Bilibili Gaming', 'BLG'], ['BILIBILI GAMING', 'BLG']],
+        [['Gen.G', 'GEN'], ['Gen.G Esports', 'GEN']],
+        [['Team Liquid', 'TL'], ['Team Liquid Alienware', 'TLAW']],
+        [['Weibo Gaming', 'WB'], ['WeiboGaming', 'WBG']],
+        [['Cloud9', 'C9'], ['Cloud9 Kia', 'C9']],
+        [['Ninjas in Pyjamas', 'NIP'], ['Shenzhen NINJAS IN PYJAMAS', 'NIP']],
+        [['Team WE', 'WE'], ["Xi'an Team WE", 'WE']],
+        [['Dplus KIA', 'DK'], ['Dplus KIA', 'DK']]
+    ];
+    for (const [local, grid] of pairs) assert.ok(teamSimilarity(local, grid) >= 0.8, `${local[0]} ↔ ${grid[0]}`);
+    // 二队不能配到一队
+    assert.ok(teamSimilarity(['Karmine Corp', 'KC'], ['Karmine Corp Blue', 'KCB']) < 0.8);
+});
+
 test('pickSeriesForMatch handles swapped order and prefers the closest start time', () => {
     const match = { team1_name: 'Natus Vincere', team1_short_name: 'NAVI', team2_name: 'PARIVISION', team2_short_name: null, match_time: '2026-11-06T06:30:00Z' };
     const series = [
@@ -307,7 +325,7 @@ test('each game is discovered with its own GRID title and token', async () => {
     assert.deepEqual(discovery.map(call => [/titleId: (\d+)/.exec(call.body.query)[1], call.key]), [['28', 'test-key'], ['6', 'riot-key']]);
     const polled = calls.filter(call => call.url.includes('series-state'));
     assert.deepEqual(polled.map(call => [call.body.variables.id, call.key]).sort(), [['600', 'riot-key'], ['900', 'test-key']]);
-    assert.deepEqual([...service.gridLiveStatus().games.map(game => game.key)], ['cs2', 'valorant']);
+    assert.deepEqual([...service.gridLiveStatus().games.map(game => game.key)], ['cs2', 'valorant', 'lol']);
 });
 
 test('GRID-TEST series that reuse real team names are never linked', async () => {

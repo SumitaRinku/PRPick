@@ -20,6 +20,7 @@
 .th-seg button:hover{background:var(--surface-5);color:var(--text-primary);filter:none}
 .th-seg button.active{background:var(--primary-color);color:#fff}
 .th-seg button.active[data-game=valorant]{background:#ff4655}
+.th-seg button.active[data-game=lol]{background:#c89b3c}
 .th-selects{display:flex;gap:8px}
 .th-selects label{display:grid;grid-template-columns:auto minmax(96px,1fr);align-items:center;gap:6px;margin:0;color:var(--text-secondary);font-size:10px;font-weight:800;letter-spacing:.04em}
 .th-selects select{padding:6px 8px;font-size:12px;border-radius:2px;border-color:var(--border-strong);background:var(--surface-input);color:var(--text-primary)}
@@ -29,6 +30,7 @@
 .th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:8px}
 .th-card{position:relative;display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;padding:10px;background:var(--surface-input);border:1px solid var(--border-color);border-left:3px solid var(--primary-color);color:var(--text-primary);text-decoration:none;transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
 .th-card.valorant{border-left-color:#ff4655}
+.th-card.lol{border-left-color:#c89b3c}
 .th-card:hover{border-color:var(--primary-color);background:var(--row-hover);box-shadow:0 2px 10px rgba(18,31,48,.10);transform:none}
 .th-card .game-pill{position:absolute;top:9px;right:9px;padding:1px 6px;font-size:9px;font-weight:800;border-radius:2px;letter-spacing:.04em}
 .th-card-logo{display:flex;align-items:center;justify-content:center;overflow:hidden;width:56px;height:56px;padding:5px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:2px}
@@ -59,6 +61,7 @@
 .th-detail{display:grid;gap:8px}
 .th-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px;background:var(--surface-4);border:1px solid var(--border-color);border-top:3px solid var(--primary-color)}
 .th-hero.valorant{border-top-color:#ff4655}
+.th-hero.lol{border-top-color:#c89b3c}
 .th-back{grid-column:1/-1;justify-self:start;width:auto;min-height:0;padding:2px 0;border:0;background:transparent;color:var(--text-secondary);font-size:11px;font-weight:800;box-shadow:none}
 .th-back:hover{color:var(--primary-color);background:transparent;filter:none;transform:none}
 .th-hero-id{display:flex;align-items:center;gap:12px;min-width:0}
@@ -198,6 +201,7 @@ html[data-theme=dark] .th-placement.place-4{color:var(--pick-text)}
 .ar-seg button:hover{background:var(--surface-5);color:var(--text-primary);filter:none}
 .ar-seg button.active{background:var(--primary-color);color:#fff}
 .ar-seg button.active[data-game=valorant]{background:#ff4655}
+.ar-seg button.active[data-game=lol]{background:#c89b3c}
 .ar-search{position:relative;flex:1 1 180px;min-width:140px;margin:0}
 .ar-search svg{position:absolute;left:9px;top:50%;width:15px;height:15px;transform:translateY(-50%);color:var(--text-secondary);pointer-events:none}
 .ar-search input{width:100%;min-width:0;padding:7px 10px 7px 30px;font-size:12px;font-weight:600;border-radius:2px;border-color:var(--border-strong);background:var(--surface-input);color:var(--text-primary)}
@@ -246,6 +250,7 @@ html[data-theme=dark] .th-placement.place-4{color:var(--pick-text)}
 /* 卡片：左侧 logo，中间名称/元信息/进度，右侧展开箭头 */
 .ar-card{position:relative;display:grid;grid-template-columns:54px minmax(0,1fr) 16px;align-items:center;gap:10px;min-height:86px;padding:10px;background:var(--surface-input);border:1px solid var(--border-color);border-left:3px solid var(--primary-color);cursor:pointer;transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
 .ar-card.valorant{border-left-color:#ff4655}
+.ar-card.lol{border-left-color:#c89b3c}
 .ar-card:hover,.ar-card:focus-visible{border-color:var(--primary-color);background:var(--row-hover);box-shadow:0 2px 10px rgba(18,31,48,.10);outline:none}
 .ar-card-logo{display:flex;align-items:center;justify-content:center;overflow:hidden;width:54px;height:54px;padding:5px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:2px}
 .ar-card-logo .tournament-logo{width:100%;height:100%;max-width:100%;max-height:100%;padding:0;border:0;background:transparent;object-fit:contain}
@@ -282,6 +287,7 @@ html[data-theme=dark] .th-placement.place-4{color:var(--pick-text)}
 .ar-focus{background:var(--surface-1);border:1px solid var(--border-color);min-width:0}
 .ar-focus-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-4);border-bottom:1px solid var(--border-color);border-top:3px solid var(--primary-color)}
 .ar-focus-head.valorant{border-top-color:#ff4655}
+.ar-focus-head.lol{border-top-color:#c89b3c}
 .ar-back{grid-column:1/-1;justify-self:start;width:auto;min-height:0;padding:2px 0;border:0;background:transparent;color:var(--text-secondary);font-size:11px;font-weight:800;box-shadow:none}
 .ar-back:hover{color:var(--primary-color);background:transparent;filter:none;transform:none}
 .ar-focus-id{display:flex;align-items:center;gap:12px;min-width:0}
@@ -380,3 +386,4 @@ html[data-theme=dark] .ar-state.live{background:rgba(232,137,154,.14)}
 /* 无赛事 logo 时的字母 / 品牌徽标 */
 .ar-mark{display:grid;place-items:center;width:100%;height:100%;background:var(--surface-5);color:var(--text-secondary);font-size:18px;font-weight:900;letter-spacing:.02em;line-height:1}
 .ar-mark.valorant{color:#ff4655}
+.ar-mark.lol{color:#c89b3c}

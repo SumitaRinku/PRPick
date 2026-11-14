@@ -162,7 +162,7 @@ html[data-theme=dark] .match-status.match-open,html[data-theme=dark] .match-stat
 
 /* ---------- 页脚 ---------- */
 .site-footer{margin-top:28px;padding:18px 14px 20px;background:linear-gradient(180deg,#202b38,#1a2430);border-top:3px solid var(--accent-line);text-align:center}
-.site-footer::before{content:"PRPICK 电竞赛事竞猜，覆盖 CS2 与 Valorant";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
+.site-footer::before{content:"PRPICK 电竞赛事竞猜，覆盖 CS2、Valorant 与 LoL";display:block;margin-bottom:10px;color:#7f93a8;font-size:11px;font-weight:700;letter-spacing:.14em}
 .footer-links a{border-radius:999px;padding:5px 12px;transition:border-color .15s ease,background-color .15s ease,color .15s ease}
 .site-footer .icp-info:empty{display:none}
 

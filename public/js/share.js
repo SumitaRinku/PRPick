@@ -562,7 +562,7 @@
 
         const mid = top + (H - top) / 2;
         text(ctx, '扫码一起来猜', PAD, mid - 30, { weight: 700, size: 44, color: C.text });
-        text(ctx, `CS2 与 Valorant 免费赛事竞猜，访问 ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
+        text(ctx, `CS2 / Valorant / LoL 免费赛事竞猜，访问 ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
     }
 
     // ---------- 组装 ----------

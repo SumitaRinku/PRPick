@@ -39,11 +39,7 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.45l4.25 4.25 1.4-1.4-4.25-4.25A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z" fill="currentColor"/></svg>
                     <input id="teamSearch" type="search" placeholder="搜索队伍名称或简称" aria-label="搜索队伍" autocomplete="off">
                 </label>
-                <div id="teamGameSeg" class="th-seg" role="group" aria-label="游戏类型">
-                    <button type="button" data-game="cs2">CS2</button>
-                    <button type="button" data-game="valorant">Valorant</button>
-                    <button type="button" data-game="">全部</button>
-                </div>
+                <div id="teamGameSeg" class="th-seg" role="group" aria-label="游戏类型" data-game-switch></div>
                 <div class="th-selects">
                     <label>排序
                         <select id="teamSort" aria-label="排序方式">

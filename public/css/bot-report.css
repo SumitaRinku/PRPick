@@ -13,7 +13,9 @@ body.bot-report-page { margin: 0; background: var(--surface-input); min-height: 
 /* Game themes: CS2 blue, Valorant red (same colours as the bracket images). */
 .bot-report[data-theme="cs2"] { --br-head: #16263a; --br-accent: #3d8bd9; --br-time: #2f6fb0; }
 .bot-report[data-theme="valorant"] { --br-head: #2b1519; --br-accent: #ff4655; --br-time: #d23a48; }
+.bot-report[data-theme="lol"]{ --br-head: #1e1b12; --br-accent: #c89b3c; --br-time: #a8802f; }
 .bot-report[data-theme="valorant"] .br-head p { color: #d9b9bd; }
+.bot-report[data-theme="lol"] .br-head p{ color: #d8cdb4; }
 
 .br-body { padding: 6px 20px 14px; }
 .br-section { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; padding: 8px 12px; background: var(--surface-4); border: 1px solid var(--border-color); border-radius: 2px; color: var(--text-heading); font-size: 17px; font-weight: 700; }
@@ -23,6 +25,7 @@ body.bot-report-page { margin: 0; background: var(--surface-input); min-height: 
 .br-group-name { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--surface-3); border-bottom: 1px solid var(--border-soft); color: var(--text-heading); font-size: 14px; font-weight: 700; }
 .br-game { padding: 1px 6px; border-radius: 2px; background: var(--surface-5); color: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .br-game.valorant { background: #f0dfe2; color: #b94653; }
+.br-game.lol{ background: #f3ead6; color: #8a6a22; }
 .br-group-name .br-mark { width: 22px; height: 22px; flex: none; object-fit: contain; }
 
 .br-row { display: grid; grid-template-columns: 66px 90px minmax(0, 1fr) 56px minmax(0, 1fr) 112px; align-items: center; min-height: 44px; padding: 0 12px; border-bottom: 1px solid var(--border-soft); background: var(--surface-input); }

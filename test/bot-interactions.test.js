@@ -527,6 +527,14 @@ test('map result text shows the map, series score and what each pick can still a
     assert.doesNotMatch(decided, /alice/);
 });
 
+test('LoL game results are worded as games with kill scores, not maps with rounds', () => {
+    const event = mapEvent(1, []);
+    event.match = { ...event.match, game_type: 'lol', format: 'BO5', team1_name: 'T1', team2_name: 'BLG' };
+    event.map = { sequence: 2, name: "Summoner's Rift", team1_rounds: 6, team2_rounds: 18, winner: 'team2' };
+    assert.equal(mapResultText(event), ['【单局结果】#1 Cup', '第 2 局：BLG 胜（击杀 T1 6:18 BLG）', '大比分 T1 1:1 BLG（BO5）', ''].join('\n')
+        .replace(/\n$/, ''));
+});
+
 test('map feed baselines new groups and lists only predictions of members who had joined', async () => {
     const {db,command,bind} = database();
     const previous=process.env.BOT_COMMAND_GROUP_IDS;

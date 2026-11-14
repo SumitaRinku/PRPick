@@ -251,13 +251,13 @@ function consensusHtml(match) {
     </div>`;
 }
 
-// 进行中：系列赛实时比分 + 当前地图回合比分（无 GRID 数据时保持 VS）
+// 进行中：系列赛实时比分 + 当前地图回合比分 / LoL 当前局击杀（无 GRID 数据时保持 VS）
 function liveCenterHtml(match) {
     const live = match.live;
     if (!live?.started || live.team1_score == null || live.team2_score == null) return '<div class="match-vs">VS</div>';
     const current = (live.games || []).find(game => game.status === 'ongoing');
     const currentHtml = current
-        ? `<span class="live-map" title="当前地图">${escapeHtml(mapLabel(current.map))} ${current.team1_rounds ?? 0}-${current.team2_rounds ?? 0}</span>`
+        ? `<span class="live-map" title="当前${gameUnitOf(match.game_type) === '局' ? '对局（击杀）' : '地图'}">${escapeHtml(gameSlotLabel(match.game_type, current))} ${current.team1_rounds ?? 0}-${current.team2_rounds ?? 0}</span>`
         : '';
     return `<div class="match-score live-score" title="实时比分（GRID）"><span>${live.team1_score}</span><em>:</em><span>${live.team2_score}</span></div>${currentHtml}`;
 }

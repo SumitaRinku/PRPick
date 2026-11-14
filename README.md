@@ -5,7 +5,7 @@
   <img src="public/images/prpicklogo.png" alt="PRPICK" width="320">
 </picture>
 
-### CS2 / Valorant 电竞赛事竞猜平台
+### CS2 / Valorant / LoL 电竞赛事竞猜平台
 
 赛前比分预测 · 自动积分结算 · 实时比分 · 排行榜 · 赛事回看 · 竞猜分享图 · QQ 群机器人
 
@@ -57,7 +57,7 @@ PRPICK 是一个**纯积分、无真实货币**的中文电竞赛事竞猜站点
 
 #### 🎯 竞猜
 
-- 按游戏（CS2 / Valorant）、赛事、状态筛选比赛
+- 按游戏（CS2 / Valorant / LoL）、赛事、状态筛选比赛
 - 预测胜者与 BO1 / BO3 / BO5 合法比分
 - 开赛前可修改 / 取消，完整保留变更历史
 - 比赛详情面板：公开预测分布与明细、赛前视角的交手记录（H2H）、BP 与单图比分
@@ -220,12 +220,12 @@ npm start
 </details>
 
 <details>
-<summary><b>GRID 实时比分（可选，CS2 / Valorant）</b></summary>
+<summary><b>GRID 实时比分（可选，CS2 / Valorant / LoL）</b></summary>
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `GRID_API_TOKEN` | — | GRID Open Access API Key（CS2）；未配置则 CS2 不启用 |
-| `RIOT_GRID_API_TOKEN` | — | Riot 系游戏的 GRID Open Access Key（Valorant，之后 LoL 共用）；未配置则不启用 |
+| `RIOT_GRID_API_TOKEN` | — | Riot 系游戏的 GRID Open Access Key（Valorant 与 LoL 共用，共享限额）；未配置则不启用 |
 | `GRID_LIVE_GAMES` | 全部 | 只为列出的游戏拉取，如 `cs2` 或 `cs2,valorant`。本地开发和服务器共用 token 时，用它或 `GRID_LIVE_ENABLED=false` 避免抢服务器额度 |
 | `GRID_LIVE_ENABLED` | `true` | 设 `false` 关闭 |
 | `GRID_LIVE_INTERVAL_MS` | `60000` | 实时比分轮询间隔（≥ 30000） |

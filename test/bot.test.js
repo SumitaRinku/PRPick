@@ -500,6 +500,7 @@ test('real schema and sync insert/update confirm source times and isolate partia
             if (String(url).includes('/valorant/')) return failValorant
                 ? { ok: false, status: 401, text: async () => 'test failure' }
                 : { ok: true, json: async () => [] };
+            if (String(url).includes('/lol/')) return { ok: true, json: async () => [] };
             return { ok: true, json: async () => [{ id: 123, status: 'not_started', scheduled_at: sourceTime,
                 serie: { id: 4, full_name: '2026' }, league: { id: 3, name: 'Test Cup' },
                 opponents: [{ opponent: { id: 1, name: 'Alpha' } }, { opponent: { id: 2, name: 'Beta' } }] }] };
@@ -508,7 +509,7 @@ test('real schema and sync insert/update confirm source times and isolate partia
         let row = db.prepare('SELECT * FROM matches').get();
         assert.equal(row.time_confirmed, 1);
         assert.equal(row.match_time, '2026-09-22T10:00:00.000Z');
-        assert.equal(db.prepare('SELECT count(*) n FROM bot_sync_state').get().n, 2);
+        assert.equal(db.prepare('SELECT count(*) n FROM bot_sync_state').get().n, 3); // cs2 / valorant / lol
         sourceTime = null;
         failValorant = true;
         db.prepare("UPDATE bot_sync_state SET last_success_at = '2000-01-01T00:00:00Z' WHERE game_type = 'valorant'").run();

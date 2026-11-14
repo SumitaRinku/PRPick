@@ -2,7 +2,8 @@
 // 两个数据源没有互通 ID，只能按「双方队名 + 开赛时间」配对。
 
 // 只影响写法、不影响身份的通用词；"academy"/"junior" 等代表不同阵容，不能去掉。
-const NOISE_TOKENS = new Set(['team', 'esports', 'esport', 'gaming', 'clan', 'gg']);
+// 冠名赞助商也算（GRID 常带赞助商全名：Team Liquid Alienware、Cloud9 Kia）。
+const NOISE_TOKENS = new Set(['team', 'esports', 'esport', 'gaming', 'clan', 'gg', 'alienware', 'kia']);
 
 // 常见缩写 ↔ 全称：归一化后整体替换（键值都是归一化后的形式）。
 const ALIASES = new Map([
@@ -12,11 +13,14 @@ const ALIASES = new Map([
     ['mibr', 'makingitbr'],
     ['nip', 'ninjasinpyjamas'],
     ['col', 'complexity'],
-    ['big', 'berlininternationalgaming']
+    ['big', 'berlininternationalgaming'],
+    // LoL：GRID 有时把 Gaming 连写（WeiboGaming）
+    ['weibogaming', 'weibo']
 ]);
 
 // 代表「另一套阵容」的词：两边这类词不一致时绝不配对（Phantom ≠ Phantom Academy、MOUZ ≠ MOUZ NXT）。
-const ROSTER_TOKENS = new Set(['academy', 'junior', 'juniors', 'jr', 'youth', 'young', 'youngsters', 'nxt', 'next', 'ares', 'reload', 'fe', 'female', 'fem', 'women', 'ladies', 'u21', 'u19', 'u18']);
+// blue：LoL 二队（Karmine Corp Blue）。
+const ROSTER_TOKENS = new Set(['academy', 'junior', 'juniors', 'jr', 'youth', 'young', 'youngsters', 'nxt', 'next', 'ares', 'reload', 'fe', 'female', 'fem', 'women', 'ladies', 'u21', 'u19', 'u18', 'blue']);
 
 const MIN_TEAM_SIMILARITY = 0.8;
 const DEFAULT_MAX_TIME_DIFF_MS = 4 * 60 * 60 * 1000;

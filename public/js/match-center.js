@@ -9,19 +9,32 @@ function mapLabel(name) {
     return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-// 单图比分条：GRID 补充数据，进行中与已结束比赛都展示
+// 对局按游戏称呼：CS2 / Valorant 每图地图不同，显示地图名；LoL 每局都在召唤师峡谷，显示「第 N 局」。
+const isRoundless = gameType => gameUnitOf(gameType) === '局';
+
+function gameSlotLabel(gameType, game) {
+    return isRoundless(gameType) ? `第 ${game.sequence} 局` : mapLabel(game.map);
+}
+
+// 单局比分的含义：CS2 / Valorant 是回合数，LoL 是击杀数
+function gameScoreHint(gameType) {
+    return isRoundless(gameType) ? '击杀' : '回合';
+}
+
+// 单图（单局）比分条：GRID 补充数据，进行中与已结束比赛都展示
 function mapStripHtml(match) {
     const games = match.live?.games || [];
     if (!games.length) return '';
+    const unit = gameUnitOf(match.game_type);
     const chips = games.map(game => {
         const t1 = game.team1_rounds ?? '-';
         const t2 = game.team2_rounds ?? '-';
-        return `<span class="map-chip ${game.status}" title="第 ${game.sequence} 图${game.status === 'ongoing' ? '（进行中）' : ''}">
-            <b>${escapeSharedHtml(mapLabel(game.map))}</b>
+        return `<span class="map-chip ${game.status}" title="第 ${game.sequence} ${unit}${game.status === 'ongoing' ? '（进行中）' : ''}，${gameScoreHint(match.game_type)}">
+            <b>${escapeSharedHtml(gameSlotLabel(match.game_type, game))}</b>
             <span class="${game.winner === 'team1' ? 'won' : ''}">${t1}</span><em>-</em><span class="${game.winner === 'team2' ? 'won' : ''}">${t2}</span>
         </span>`;
     }).join('');
-    return `<div class="match-maps" aria-label="单图比分">${chips}</div>`;
+    return `<div class="match-maps" aria-label="单${unit}比分">${chips}</div>`;
 }
 
 
@@ -37,8 +50,10 @@ function mapKey(name) {
 }
 
 // 按 BP 顺序（选图 → 决胜图）排地图；BP 缺失时退回实际对局顺序
-function matchCenterMaps(live) {
+function matchCenterMaps(live, gameType) {
     const games = live.games || [];
+    // LoL 每局同一张地图，不能按地图名合并，按局序列出
+    if (isRoundless(gameType)) return games.map(game => ({ map: game.map, game }));
     const byMap = new Map(games.map(game => [mapKey(game.map), game]));
     const rows = (live.veto || []).filter(entry => entry.type !== 'ban').map(entry => ({ map: entry.map, veto: entry, game: byMap.get(mapKey(entry.map)) }));
     for (const game of games) {
@@ -57,13 +72,15 @@ function matchCenterHtml(match) {
     const seriesWinner = isFinished && score1 != null && score2 != null && score1 !== score2 ? (score1 > score2 ? 'team1' : 'team2') : null;
     const statusLabel = isFinished ? '已结束' : live.started ? '进行中' : '未开始';
     const sideLabel = side => (side === 'ct' ? 'CT' : 'T');
+    const roundless = isRoundless(match.game_type);
+    const unit = gameUnitOf(match.game_type);
 
-    const maps = matchCenterMaps(live).map(row => {
+    const maps = matchCenterMaps(live, match.game_type).map(row => {
         const game = row.game;
         // 系列赛已结束却没有对局的地图（如 2-0 后的决胜图）= 未进行
         const state = game ? game.status : isFinished ? 'skipped' : 'upcoming';
         const key = mapKey(row.map);
-        const art = MAP_ART.has(key) ? ` style="background-image:url('/images/maps/${key}.webp')"` : '';
+        const art = !roundless && MAP_ART.has(key) ? ` style="background-image:url('/images/maps/${key}.webp')"` : '';
         const pickLabel = row.veto?.type === 'pick' ? `${teamName(row.veto.team)} 选图` : row.veto?.type === 'decider' ? '决胜图' : '';
         const sideNote = row.veto?.side ? `${teamName(row.veto.side.team)} 先手 ${sideLabel(row.veto.side.side)}` : '';
         const stateNote = state === 'ongoing' ? '<span class="mc-live">进行中</span>' : state === 'upcoming' ? '<span class="mc-pending">待进行</span>' : state === 'skipped' ? '<span class="mc-pending">未进行</span>' : '';
@@ -71,12 +88,12 @@ function matchCenterHtml(match) {
             const rounds = game ? game[`${key2}_rounds`] : null;
             const won = game?.winner === key2;
             return `<div class="mc-map-team ${won ? 'won' : game?.winner ? 'lost' : ''}">
-                <span>${teamName(key2)}</span><b>${rounds ?? '-'}</b>
+                <span>${teamName(key2)}</span><b title="${gameScoreHint(match.game_type)}">${rounds ?? '-'}</b>
             </div>`;
         };
         return `<div class="mc-map ${state}">
             <div class="mc-map-art ${art ? '' : 'no-art'}"${art}>
-                <strong>${escapeSharedHtml(mapLabel(row.map))}</strong>
+                <strong>${escapeSharedHtml(game ? gameSlotLabel(match.game_type, game) : mapLabel(row.map))}</strong>
                 ${pickLabel ? `<small>${pickLabel}</small>` : ''}
             </div>
             <div class="mc-map-result">${teamLine('team1')}${teamLine('team2')}</div>
@@ -108,9 +125,9 @@ function matchCenterHtml(match) {
             <div class="mc-hero-center">${scoreHtml}<span class="mc-status ${isFinished ? 'finished' : live.started ? 'live' : ''}">${statusLabel}</span></div>
             ${heroTeam('team2')}
         </div>
-        ${maps ? `<section class="mc-section"><h3>地图</h3><div class="mc-maps">${maps}</div></section>` : ''}
+        ${maps ? `<section class="mc-section"><h3>${roundless ? '对局' : '地图'}</h3><div class="mc-maps">${maps}</div></section>` : ''}
         ${veto ? `<section class="mc-section"><h3>BP 流程</h3><ol class="mc-veto">${veto}</ol></section>` : ''}
-        <p class="mc-source">地图与 BP 数据来自 GRID Open Access，仅供展示，结算以官方赛果为准。</p>
+        <p class="mc-source">${roundless ? `每${unit}比分为击杀数，` : ''}${roundless ? '对局' : '地图'}与 BP 数据来自 GRID Open Access，仅供展示，结算以官方赛果为准。</p>
     </div>`;
 }
 
@@ -121,7 +138,7 @@ const matchDetail = { id: null, match: null, tab: null, token: 0, timer: null };
 function matchDetailTabs(match) {
     const tbd = match.team1_name === 'TBD' || match.team2_name === 'TBD';
     const tabs = [];
-    if (hasMatchCenter(match)) tabs.push(['map', '地图']);
+    if (hasMatchCenter(match)) tabs.push(['map', isRoundless(match.game_type) ? '对局' : '地图']);
     // 预测明细接口只对已结束比赛开放
     if (match.status === 'finished') tabs.push(['predictions', '预测']);
     if (!tbd) tabs.push(['h2h', '交锋']);
@@ -208,6 +225,7 @@ function stopMatchDetail() {
 const showMatchCenter = matchId => openMatchDetail(matchId, 'map');
 
 window.mapLabel = mapLabel;
+window.gameSlotLabel = gameSlotLabel;
 window.mapStripHtml = mapStripHtml;
 window.hasMatchCenter = hasMatchCenter;
 window.openMatchDetail = openMatchDetail;

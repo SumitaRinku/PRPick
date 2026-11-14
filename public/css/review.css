@@ -45,6 +45,7 @@
 .rv-logo img,.rv-logo .tournament-logo{width:100%;height:100%;max-width:100%;max-height:100%;padding:0;border:0;background:transparent;object-fit:contain}
 .rv-mark{display:grid;place-items:center;width:100%;height:100%;color:var(--primary-color);font-size:.78rem;font-weight:900;letter-spacing:.02em}
 .rv-mark.valorant{color:#ff4655}
+.rv-mark.lol{color:#c89b3c}
 .rv-logo.xs .rv-mark{font-size:.6rem}
 
 /* ---------- 通用小件 ---------- */
@@ -53,6 +54,7 @@
 .rv-sub>span:last-child{overflow:hidden;text-overflow:ellipsis}
 .rv-game{padding:0 5px;border-radius:2px;background:rgba(30,166,114,.12);color:var(--success-color);font-size:.66rem;font-weight:800}
 .rv-game.valorant{background:rgba(255,70,85,.12);color:#ff4655}
+.rv-game.lol{background:rgba(200,155,60,.12);color:#c89b3c}
 .rv-progress{display:block;height:3px;border-radius:2px;background:var(--surface-4);overflow:hidden}
 .rv-progress i{display:block;height:100%;background:var(--primary-color);border-radius:inherit}
 .rv-count{color:var(--text-heading);font-size:.95rem;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -95,6 +97,7 @@
 .rv-back:hover{color:var(--primary-color);transform:none}
 .rv-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-color);border-top:3px solid var(--primary-color);border-radius:var(--radius-card);background:var(--surface-1)}
 .rv-hero.valorant{border-top-color:#ff4655}
+.rv-hero.lol{border-top-color:#c89b3c}
 .rv-hero-text{display:grid;gap:4px;min-width:0}
 .rv-hero h2{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading);font-size:1.35rem}
 .rv-hero-side{display:grid;justify-items:end;gap:4px;min-width:120px}

@@ -106,14 +106,26 @@ function pickOutlook(p, series) {
     return '比分已不可能，胜者仍有机会';
 }
 
+// 每局都在同一张地图上的游戏（LoL）：称「局」，单局比分是击杀数而不是回合数。
+// bot 独立部署、不读网站的游戏注册表，新增此类游戏时在这里补上 game_type。
+const ROUNDLESS_GAMES = new Set(['lol']);
+
 // 【地图结果】#12 IEM Cologne / 第 2 图 Mirage：Alpha 13:9 Beta / 大比分 Alpha 1:1 Beta（BO3）
+// 【单局结果】#30 Worlds 2026 / 第 2 局：BLG 胜（击杀 BLG 18:6 T1）/ 大比分 BLG 2:0 T1（BO5）
 function mapResultText(event) {
     const clean = s => String(s).replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
     const { match: m, map, series } = event;
-    const rounds = Number.isInteger(map.team1_rounds) && Number.isInteger(map.team2_rounds)
-        ? `${map.team1_rounds}:${map.team2_rounds}` : (map.winner === 'team1' ? '胜:负' : '负:胜');
-    const lines = [`【地图结果】#${m.id} ${clean(m.tournament_name)}`,
-        `第 ${map.sequence} 图 ${mapLabel(map.name)}：${clean(m.team1_name)} ${rounds} ${clean(m.team2_name)}`,
+    const hasScore = Number.isInteger(map.team1_rounds) && Number.isInteger(map.team2_rounds);
+    const rounds = hasScore ? `${map.team1_rounds}:${map.team2_rounds}` : (map.winner === 'team1' ? '胜:负' : '负:胜');
+    const roundless = ROUNDLESS_GAMES.has(m.game_type);
+    let gameLine = `第 ${map.sequence} 图 ${mapLabel(map.name)}：${clean(m.team1_name)} ${rounds} ${clean(m.team2_name)}`;
+    if (roundless) {
+        const winner = map.winner === 'team1' ? m.team1_name : map.winner === 'team2' ? m.team2_name : null;
+        const kills = hasScore ? `（击杀 ${clean(m.team1_name)} ${rounds} ${clean(m.team2_name)}）` : '';
+        gameLine = `第 ${map.sequence} 局：${winner ? `${clean(winner)} 胜` : `${clean(m.team1_name)} vs ${clean(m.team2_name)}`}${kills}`;
+    }
+    const lines = [`【${roundless ? '单局' : '地图'}结果】#${m.id} ${clean(m.tournament_name)}`,
+        gameLine,
         `大比分 ${clean(m.team1_name)} ${series.team1}:${series.team2} ${clean(m.team2_name)}${m.format ? `（${clean(m.format)}）` : ''}`];
     // 比赛已分胜负时不逐人点评，稍后的结算消息会给出得分。
     if (series.decided) lines.push('', '比赛结束，结算稍后推送');

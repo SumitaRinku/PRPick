@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { GAMES: REGISTRY } = require('../config/games');
+const { GAMES: REGISTRY, autoActivates } = require('../config/games');
 const { settleMatch, recalculateUserScores } = require('../utils/settlement');
 const { getPreviewDays } = require('./settings');
 const { canonicalBracketMatchId, parseBracketPayload } = require('./bracketModel');
@@ -447,9 +447,11 @@ function upsertTournament(match, now) {
         return existing.id;
     }
 
-    const inserted = db.prepare(`INSERT INTO tournaments (name, game_type, is_active, name_locked, begin_at, end_at, logo_url, external_source, external_id, last_synced_at) VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, ?)`).run(
+    // 新赛事默认关闭展示，注册表 autoActivateLeagues 列出的联赛（如 LoL 国际赛 / 四大赛区）除外。
+    const inserted = db.prepare(`INSERT INTO tournaments (name, game_type, is_active, name_locked, begin_at, end_at, logo_url, external_source, external_id, last_synced_at) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`).run(
         name,
         gameType,
+        autoActivates(gameType, leagueName) ? 1 : 0,
         iso(serie.begin_at || match.begin_at),
         iso(serie.end_at),
         league.image_url || null,
