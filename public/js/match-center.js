@@ -127,6 +127,7 @@ function matchCenterHtml(match) {
         </div>
         ${maps ? `<section class="mc-section"><h3>${roundless ? '对局' : '地图'}</h3><div class="mc-maps">${maps}</div></section>` : ''}
         ${veto ? `<section class="mc-section"><h3>BP 流程</h3><ol class="mc-veto">${veto}</ol></section>` : ''}
+        ${live.has_stats ? `<section class="mc-section"><h3>${roundless ? '每局数据' : '每图数据'}</h3><div class="gs-host" data-mc-stats><div class="rv-md-loading">加载中…</div></div></section>` : ''}
         <p class="mc-source">${roundless ? `每${unit}比分为击杀数，` : ''}${roundless ? '对局' : '地图'}与 BP 数据来自 GRID Open Access，仅供展示，结算以官方赛果为准。</p>
     </div>`;
 }
@@ -192,7 +193,14 @@ async function loadMatchDetailTab(tab, { silent = false, fresh = false } = {}) {
             // 刚打开时复用已取到的比赛数据；切回地图或定时刷新时重新拉取
             const match = fresh && matchDetail.match ? matchDetail.match : (await sharedApi(`/matches/${matchId}`)).match;
             if (token !== matchDetail.token) return;
+            // 定时刷新时先保留上一次的数据板，避免每 30 秒闪一下「加载中」
+            const previousStats = body.querySelector('[data-mc-stats]')?.innerHTML;
             body.innerHTML = matchCenterHtml(match);
+            const statsHost = body.querySelector('[data-mc-stats]');
+            if (statsHost && typeof renderMatchStatsInto === 'function') {
+                if (previousStats && silent) statsHost.innerHTML = previousStats;
+                renderMatchStatsInto(match, statsHost);
+            }
             // 比赛进行中：地图页每 30 秒刷新（切换标签或关闭弹窗即停止）
             if (match.live?.started && !match.live.finished && match.status !== 'finished') {
                 matchDetail.timer = setTimeout(() => {

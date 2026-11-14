@@ -4,6 +4,8 @@ const { TIER_SQL } = require('../services/tournamentTier');
 const { GAMES, isGame } = require('../config/games');
 const { getPreviewDays } = require('../services/settings');
 const { attachLiveScores } = require('../services/gridLiveService');
+const { flipGameStats } = require('../services/gridStats');
+const { aggregateTournamentStats } = require('../services/gameStatsAggregate');
 
 const router = express.Router();
 
@@ -99,7 +101,9 @@ router.get('/:id', (req, res) => {
             COUNT(DISTINCT CASE WHEN m.status = 'ongoing' OR (m.status = 'upcoming' AND datetime(m.match_time) <= datetime('now')) THEN m.id END) ongoing_count,
             COUNT(DISTINCT CASE WHEN m.status = 'upcoming' AND datetime(m.match_time) > datetime('now') THEN m.id END) upcoming_count,
             COUNT(DISTINCT CASE WHEN m.status IN ('upcoming', 'ongoing') THEN m.id END) unfinished_count,
-            COUNT(p.id) prediction_count
+            COUNT(p.id) prediction_count,
+            (SELECT COUNT(*) FROM match_game_stats s JOIN matches sm ON sm.id = s.match_id
+                WHERE sm.tournament_id = t.id AND s.status = 'finished') stats_games
         FROM tournaments t
         LEFT JOIN matches m ON m.tournament_id = t.id
         LEFT JOIN predictions p ON p.match_id = m.id
@@ -108,6 +112,36 @@ router.get('/:id', (req, res) => {
     `).get(req.params.id);
     if (!tournament) return res.status(404).json({ error: '赛事不存在' });
     res.json({ tournament, matches: attachLiveScores(matchRows(tournament.id)) });
+});
+
+// 赛事数据统计（GRID 每局详细数据汇总）：队伍 / 选手 / 英雄（LoL）或特工（Valorant）榜。仅展示，不参与结算。
+router.get('/:id/stats', (req, res) => {
+    const tournament = db.prepare('SELECT id, name, game_type FROM tournaments WHERE id = ? AND is_active = 1').get(req.params.id);
+    if (!tournament) return res.status(404).json({ error: '赛事不存在' });
+    const rows = db.prepare(`
+        SELECT s.match_id, s.payload, l.team1_id link_team1_id, m.team1_id, m.team2_id,
+            t1.name team1_name, t1.short_name team1_short_name, t1.logo_url team1_logo_url,
+            t2.name team2_name, t2.short_name team2_short_name, t2.logo_url team2_logo_url
+        FROM match_game_stats s
+        JOIN matches m ON m.id = s.match_id
+        JOIN teams t1 ON t1.id = m.team1_id
+        JOIN teams t2 ON t2.id = m.team2_id
+        LEFT JOIN match_live_links l ON l.match_id = m.id
+        WHERE m.tournament_id = ? AND s.status = 'finished' AND m.status != 'cancelled'
+        ORDER BY m.match_time, s.sequence
+    `).all(tournament.id).map(row => {
+        let stats = null;
+        try { stats = JSON.parse(row.payload); } catch { stats = null; }
+        // 写入后 PandaScore 对调了主客队：翻转到当前方向
+        if (stats && row.link_team1_id != null && Number(row.link_team1_id) === Number(row.team2_id)) stats = flipGameStats(stats);
+        return {
+            match_id: row.match_id,
+            team1: { id: row.team1_id, name: row.team1_name, short_name: row.team1_short_name, logo_url: row.team1_logo_url },
+            team2: { id: row.team2_id, name: row.team2_name, short_name: row.team2_short_name, logo_url: row.team2_logo_url },
+            stats
+        };
+    });
+    res.json({ tournament, stats: aggregateTournamentStats(tournament.game_type, rows) });
 });
 
 // 官方赛程图数据：阶段 + 节点 + 父子边。节点来自 PandaScore /tournaments/{id}/brackets，

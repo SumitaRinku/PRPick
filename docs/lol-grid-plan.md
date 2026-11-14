@@ -39,7 +39,9 @@
 - [x] 阶段 3：详细数据入库。新表 `match_game_stats`（每局一行 JSON，长期保留），与比分同一次 seriesState 请求取回；`GET /api/matches/:id/details`；历史补齐在服务器轮询里用剩余额度进行（`GRID_BACKFILL_DAYS`，默认 90 天）。在库副本上用真实 API 验证：Worlds 两场半决赛共 7 局补齐成功。
   - LoL 选手位置 GRID 只给 id 不给名称，存了补刀拆分 / 出装，阶段 4 再推断上中下打野辅助。
   - 不存镀层数：GRID 计数口径不明。
-- [ ] 阶段 4 ~ 6
+- [x] 阶段 4：比赛详情「每局数据」。LoL：BP（英雄头像，禁用灰显）、队伍对比条、5v5 选手表（位置按野区补刀 / 总补刀 / 英雄定位推断）、出装图标；CS2 / Valorant：每图记分板。英雄 / 装备图标与中文名来自 Data Dragon，服务端缓存。
+- [x] 阶段 5：机器人 LoL 单局播报（阶段 2 已完成），`/pick` 指令自动支持 `lol`。
+- [x] 阶段 6：赛事回看页「数据」标签（有详细数据才出现）：选手 / 队伍 / 英雄（LoL BP 率）/ 地图，表头排序。
 - 待补：LoL 赛事 logo 图片（tournament-logos.js 还没有 LoL 条目，先显示 PandaScore 的联赛 logo）。
 
 ## 二、分阶段计划

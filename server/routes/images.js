@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const db = require('../config/database');
+const { getLolAssets, imageUrl } = require('../services/lolAssets');
 
 const router = express.Router();
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -201,6 +202,43 @@ router.get('/team-logo', async (req, res) => {
         res.send(image.body);
     } catch (error) {
         console.warn('team-logo proxy failed:', error.message);
+        res.status(502).json({ error: '图片获取失败' });
+    }
+});
+
+// LoL 英雄 / 装备图标（Data Dragon）。只接受索引里存在的 id，地址由服务端拼出，不能被当成任意图片跳板。
+router.get('/lol/:kind/:id', async (req, res) => {
+    const { kind, id } = req.params;
+    if (!['champion', 'item'].includes(kind) || !/^[A-Za-z0-9]{1,40}$/.test(id)) return res.status(400).json({ error: '参数无效' });
+    const assets = await getLolAssets();
+    const url = imageUrl(assets, kind, id);
+    if (!url) return res.status(404).json({ error: '素材不存在' });
+    try {
+        let image = await readLogoCache(url);
+        if (!image) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) throw new Error(`Data Dragon HTTP ${response.status}`);
+                const body = Buffer.from(await response.arrayBuffer());
+                const contentType = sniffImageType(body);
+                if (!contentType || body.length > MAX_BYTES) throw new Error('Data Dragon 返回的不是图片');
+                image = { contentType, body };
+            } finally {
+                clearTimeout(timer);
+            }
+            await writeLogoCache(url, image);
+        }
+        res.set({
+            'Content-Type': image.contentType,
+            // 地址里带 Data Dragon 版本，内容不变
+            'Cache-Control': 'public, max-age=604800, immutable',
+            'X-Content-Type-Options': 'nosniff'
+        });
+        res.send(image.body);
+    } catch (error) {
+        console.warn('lol asset proxy failed:', error.message);
         res.status(502).json({ error: '图片获取失败' });
     }
 });

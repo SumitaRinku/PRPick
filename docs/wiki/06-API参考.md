@@ -41,7 +41,8 @@ Base URL：`/api`。除上传 logo 外均为 JSON 请求/响应。
 | --- | --- | --- | --- |
 | GET | `/` | 🌐 | 活跃赛事聚合。query：`game_type`、`status`（finished / ongoing） |
 | GET | `/previews` | 🌐 | **未来赛事预告** `{previews:[{id,game_type,external_id,name,begin_at,end_at}], days}`；只读 `tournament_previews`，仅 `is_visible = 1` 且在 `preview_days` 窗口内 |
-| GET | `/:id` | 🌐 | 赛事详情 + 全部比赛（赛程图数据源） |
+| GET | `/:id` | 🌐 | 赛事详情 + 全部比赛（赛程图数据源）；`tournament.stats_games` 为有 GRID 详细数据的已结束对局数 |
+| GET | `/:id/stats` | 🌐 | 赛事数据统计（`server/services/gameStatsAggregate.js`）：LoL `{teams, players, champions}`（胜率、蓝红方、场均资源；KDA、分均补刀/经济、伤害占比、参团率、常用英雄；英雄 BP 率/胜率）；CS2/Valorant `{teams, players, maps, agents}`（回合差；ADR 按回合加权、K/D、爆头率） |
 | GET | `/:id/leaderboard` | 🌐 | 赛事榜（排除 admin、弃权局） |
 | GET | `/:id/predictions` | 🌐 | 已结束比赛的预测流水 |
 
@@ -61,10 +62,17 @@ Base URL：`/api`。除上传 logo 外均为 JSON 请求/响应。
 | GET | `/tournament/:id` | 🌐 | 单赛事榜 |
 | GET | `/users/:id/details` | 🌐 | 用户得分明细 `{user, summary, predictions}` |
 
+## /api/lol — LoL 素材
+
+| 方法 | 路径 | 鉴权 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/assets` | 🌐 | `{version, champions:{<英文名归一化>:{id, zh, tags}}, items:{<英文名归一化>:{id, zh}}}`；来自 Riot Data Dragon，服务端缓存 `data/lol-cache/index.json`、每 24 小时刷新；`LOL_DDRAGON_BASE` 可换镜像 |
+
 ## /api/images — Logo 代理
 
 | 方法 | 路径 | 鉴权 | 说明 |
 | --- | --- | --- | --- |
+| GET | `/lol/:kind/:id` | 🌐 | LoL 英雄（`champion`）/ 装备（`item`）图标，id 必须在 Data Dragon 索引内；回源后落盘缓存到 `data/logo-cache/` |
 | GET | `/team-logo?url=...` | 🌐 | 仅代理库内已注册 URL；SSRF 防护（内网拦截、DNS 全记录校验、固定 IP 连接、重定向逐跳校验）；≤2MB / 12s；仅图片；缓存 1 天 + nosniff + CSP |
 
 ## /api/qrcode — 二维码

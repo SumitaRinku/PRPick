@@ -90,10 +90,11 @@ function lolTeam(team) {
     };
 }
 
-function shooterPlayer(player, totalRounds, withAgent) {
+// 爆头率只给 CS2：Valorant 的 headshots 是爆头命中次数（实测有人爆头数大于击杀数），不能除以击杀。
+function shooterPlayer(player, totalRounds, withAgent, withHeadshots) {
     const kills = num(player.kills);
     const damage = num(player.damageDealt);
-    const headshots = num(player.headshots);
+    const headshots = withHeadshots ? num(player.headshots) : null;
     return {
         name: player.name || null,
         ...(withAgent ? { agent: player.character?.name || null } : {}),
@@ -153,8 +154,8 @@ function normalizeGameStats(gameType, game, team1GridId, team2GridId) {
         ...base,
         teams: { team1: shooterTeam(t1), team2: shooterTeam(t2) },
         players: {
-            team1: (t1.players || []).map(player => shooterPlayer(player, totalRounds, withAgent)),
-            team2: (t2.players || []).map(player => shooterPlayer(player, totalRounds, withAgent))
+            team1: (t1.players || []).map(player => shooterPlayer(player, totalRounds, withAgent, gameType === 'cs2')),
+            team2: (t2.players || []).map(player => shooterPlayer(player, totalRounds, withAgent, gameType === 'cs2'))
         }
     };
 }

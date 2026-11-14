@@ -11,6 +11,8 @@ const state = {
     activeTournamentId: new URLSearchParams(location.search).get('tournament') || '',
     activeTournamentData: null,
     activeStageKey: '',
+    // 赛事详情：schedule（赛程）/ stats（数据统计，GRID 每局详细数据汇总）
+    detailView: 'schedule',
     previews: [],
     previewDays: 0
 };
@@ -447,6 +449,8 @@ function tournamentDetailPage(data) {
     // 只统计本地已入库比赛：官方 nodes 可能包含尚未进入同步窗口的未来场次。
     const stageTotal = new Set(stages.flatMap(stage => stageMatches(stage)).filter(match => match.id).map(match => String(match.id))).size;
     const notice = stageTotal === matches.length ? '' : `<p class="rv-notice">部分比赛暂未归入阶段（${stageTotal}/${matches.length}）</p>`;
+    const hasStats = (tournament.stats_games || 0) > 0 && typeof tournamentStatsContainer === 'function';
+    const view = hasStats ? state.detailView : 'schedule';
     return `<section class="rv-detail">
         <button type="button" class="rv-back" onclick="backToTournamentList()">‹ 赛事回看</button>
         <header class="rv-hero ${tournament.game_type}">
@@ -461,9 +465,13 @@ function tournamentDetailPage(data) {
                 <span class="rv-progress"><i style="width:${progress}%"></i></span>
             </div>
         </header>
-        ${notice}
+        ${hasStats ? `<nav class="rv-view-switch" role="tablist" aria-label="赛事视图">
+            <button type="button" role="tab" class="${view === 'schedule' ? 'active' : ''}" onclick="setDetailView('schedule')">赛程</button>
+            <button type="button" role="tab" class="${view === 'stats' ? 'active' : ''}" onclick="setDetailView('stats')">数据</button>
+        </nav>` : ''}
+        ${view === 'stats' ? tournamentStatsContainer(tournament.id, tournament.game_type) : `${notice}
         ${stageTabs(stages)}
-        <div class="ar-focus-stages rv-stages">${stages.map(stagePanel).join('') || '<div class="rv-empty">暂无比赛</div>'}</div>
+        <div class="ar-focus-stages rv-stages">${stages.map(stagePanel).join('') || '<div class="rv-empty">暂无比赛</div>'}</div>`}
     </section>`;
 }
 
@@ -476,9 +484,17 @@ window.addEventListener('resize', () => {
     if (state.activeTournamentData) tournamentsEl.innerHTML = tournamentDetailPage(state.activeTournamentData);
 });
 
+function setDetailView(view) {
+    state.detailView = view === 'stats' ? 'stats' : 'schedule';
+    if (state.activeTournamentData && tournamentsEl) tournamentsEl.innerHTML = tournamentDetailPage(state.activeTournamentData);
+}
+
 async function openTournamentPage(id) {
     if (!tournamentsEl) return;
-    if (String(id) !== state.activeTournamentId || !state.activeTournamentData) state.activeStageKey = '';
+    if (String(id) !== state.activeTournamentId || !state.activeTournamentData) {
+        state.activeStageKey = '';
+        state.detailView = 'schedule';
+    }
     state.activeTournamentId = String(id);
     state.activeTournamentData = null;
     updateTournamentUrl();
@@ -629,6 +645,7 @@ window.enterTournament = enterTournament;
 window.backToTournamentList = backToTournamentList;
 window.showMatchPredictions = showMatchPredictions;
 window.focusTournamentMatch = focusTournamentMatch;
+window.setDetailView = setDetailView;
 window.openTournamentStage = openTournamentStage;
 window.closeDetailModal = closeDetailModal;
 // showMatchHead2Head 由 /js/h2h.js、showMatchCenter 由 /js/match-center.js 提供

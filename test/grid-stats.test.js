@@ -58,13 +58,16 @@ test('Valorant and CS2 maps: per-player K/D/A, ADR and headshot rate', () => {
     const chronicle = [...val.players.team1, ...val.players.team2].find(p => p.name === 'Chronicle');
     assert.equal(chronicle.agent, 'neon');
     assert.equal(chronicle.adr, Math.round((2187 / 24) * 10) / 10);
-    assert.equal(chronicle.hs_pct, Math.round((15 / 18) * 1000) / 10);
+    // Valorant 的 headshots 是命中次数，不算爆头率
+    assert.equal(chronicle.hs_pct, null);
 
     const cs = normalizeGameStats('cs2', fixture('cs2').game, '54069', '57954');
     assert.equal(cs.teams.team1.rounds, 13);
     assert.equal(cs.players.team1.length, 5);
     assert.equal(cs.players.team1[0].agent, undefined, 'CS2 sides are not agents');
     assert.ok(cs.players.team1.every(p => p.adr > 0));
+    const faster = cs.players.team1.find(p => p.name === 'FasteR');
+    assert.equal(faster.hs_pct, Math.round((13 / 16) * 1000) / 10);
 });
 
 test('unstarted games or unknown teams yield nothing; flipping swaps every side', () => {
