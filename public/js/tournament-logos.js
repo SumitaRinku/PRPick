@@ -8,7 +8,8 @@ const TOURNAMENT_LOGOS = [
     { file: '/images/tournament/blast-rival.webp', game: 'cs2', keys: ['blast rival'] },
     { file: '/images/tournament/epl.png', game: 'cs2', keys: ['esl pro league', 'epl'] },
     { file: '/images/tournament/xpl.png', game: 'cs2', keys: ['xse pro league', 'xpl'] },
-    { file: '/images/tournament/ewc.png', game: 'cs2', keys: ['esports world cup', 'ewc'] },
+    // EWC 跨游戏（CS2 / Valorant / LoL 都有分项），不限游戏
+    { file: '/images/tournament/ewc.png', game: null, keys: ['esports world cup', 'ewc'] },
     { file: '/images/tournament/fissure.webp', game: 'cs2', keys: ['fissure'] },
     { file: '/images/tournament/iem.png', game: 'cs2', keys: ['iem'] },
     { file: '/images/tournament/pgl.webp', game: 'cs2', keys: ['pgl'] },
@@ -21,7 +22,19 @@ const TOURNAMENT_LOGOS = [
     { file: '/images/tournament/vct-cn.png', game: 'valorant', keys: ['vct china', 'vct cn'] },
     { file: '/images/tournament/vct-emea.png', game: 'valorant', keys: ['vct emea'] },
     { file: '/images/tournament/vct-masters.png', game: 'valorant', keys: ['vct masters'] },
-    { file: '/images/tournament/vct-pacific.png', game: 'valorant', keys: ['vct pacific'] }
+    { file: '/images/tournament/vct-pacific.png', game: 'valorant', keys: ['vct pacific'] },
+    // LoL：来源为 PandaScore 联赛 logo（裁边缩小后存本地）。顺序有讲究：LCK CL 在 LCK 前、LTA 南北在 LTA 前
+    { file: '/images/tournament/lol-worlds.png', game: 'lol', keys: ['worlds', 'world championship', '全球总决赛'] },
+    { file: '/images/tournament/lol-msi.png', game: 'lol', keys: ['mid-season invitational', 'msi', '季中冠军赛'] },
+    { file: '/images/tournament/lol-first-stand.png', game: 'lol', keys: ['first stand', '先锋赛'] },
+    { file: '/images/tournament/lol-lck-cl.png', game: 'lol', keys: ['lck challengers', 'lck cl'] },
+    { file: '/images/tournament/lol-lck.png', game: 'lol', keys: ['lck'] },
+    { file: '/images/tournament/lol-lpl.png', game: 'lol', keys: ['lpl'] },
+    { file: '/images/tournament/lol-lec.png', game: 'lol', keys: ['lec'] },
+    { file: '/images/tournament/lol-lcs.png', game: 'lol', keys: ['lcs'] },
+    { file: '/images/tournament/lol-lta-north.png', game: 'lol', keys: ['lta north'] },
+    { file: '/images/tournament/lol-lta-south.png', game: 'lol', keys: ['lta south'] },
+    { file: '/images/tournament/lol-lta.png', game: 'lol', keys: ['lta'] }
 ];
 
 function tournamentLogoUrl(name, gameType) {
@@ -30,7 +43,7 @@ function tournamentLogoUrl(name, gameType) {
     // Game Changers 无独立 logo，避免误挂对应赛区的标
     if (lower.includes('game changers')) return '';
     for (const item of TOURNAMENT_LOGOS) {
-        if (gameType && item.game !== gameType) continue;
+        if (gameType && item.game && item.game !== gameType) continue;
         if (item.keys.some(key => lower.includes(key))) return item.file;
     }
     return '';
