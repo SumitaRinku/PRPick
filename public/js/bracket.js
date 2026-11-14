@@ -460,10 +460,9 @@ function bracketWhenChip(match) {
 }
 
 // LIVE 卡片单击跳转的直播间地址（按比赛所属赛事的游戏类型区分）。
-const LIVE_STREAM_URLS = {
-    cs2: 'https://live.bilibili.com/1883358196',
-    valorant: 'https://live.bilibili.com/24160384'
-};
+// 地址见 games.js streamUrl；bracket.js 也会被 node 测试直接加载，此时没有 GAME_REGISTRY。
+const LIVE_STREAM_URLS = typeof GAME_REGISTRY === 'undefined' ? {} : Object.fromEntries(
+    Object.entries(GAME_REGISTRY).filter(([, game]) => game.streamUrl).map(([key, game]) => [key, game.streamUrl]));
 
 // 赛程图卡片点击行为：LIVE 卡片直接新标签页打开对应游戏直播间；
 // 其余（未开赛/已结束/未知游戏）保持原有定位逻辑 focusTournamentMatch。

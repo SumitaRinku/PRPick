@@ -55,7 +55,7 @@ function formatDateTime(value) {
 }
 
 function gameName(game) {
-    return game === 'valorant' ? 'Valorant' : game === 'cs2' ? 'CS2' : '全部游戏';
+    return gameLabelOf(game);
 }
 
 function saveAuth(data) {
@@ -753,7 +753,7 @@ function hideStalenessWarning() {
 
 // URL ?game= 直达：优先于本地记忆，保证分享/刷新后视图一致
 const urlGame = new URLSearchParams(location.search).get('game');
-if (urlGame !== null && ['cs2', 'valorant'].includes(urlGame)) {
+if (urlGame !== null && isGameKey(urlGame)) {
     state.game = urlGame;
     localStorage.setItem('gameFilter', urlGame);
 }

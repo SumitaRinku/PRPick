@@ -39,7 +39,7 @@ function teamLogo(url, darkUrl) {
     return `<img src="${teamEscape(src)}" data-team-logo data-light="${teamEscape(light || '')}" data-dark="${teamEscape(dark || '')}" data-try="${useDark ? 'dark' : 'light'}" data-variant="${useDark ? 'dark' : 'light'}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="teamLogoError(this)">`;
 }
 
-function teamGameName(game) { return game === 'valorant' ? 'Valorant' : 'CS2'; }
+function teamGameName(game) { return gameLabelOf(game, game || ''); }
 function teamRecord(row) { return `${row.win_count || 0}胜 ${row.loss_count || 0}负`; }
 function winRate(wins, played) { return played ? Math.round((wins / played) * 100) : 0; }
 

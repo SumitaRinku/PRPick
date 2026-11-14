@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../config/database');
+const { isGame } = require('../config/games');
 
 const router = express.Router();
 const NOT_TBD = "t.name <> 'TBD'";
@@ -58,7 +59,7 @@ router.get('/', (req, res) => {
     const activity = ['active', 'upcoming'].includes(req.query.activity) ? req.query.activity : '';
     const params = [];
     let where = `WHERE ${NOT_TBD}`;
-    if (game_type && ['cs2', 'valorant'].includes(game_type)) {
+    if (isGame(game_type)) {
         where += ' AND t.game_type = ?';
         params.push(game_type);
     }

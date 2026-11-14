@@ -1,4 +1,6 @@
-const VALID_GAMES = new Set(['cs2', 'valorant']);
+const { gameKeys } = require('../config/games');
+
+const VALID_GAMES = new Set(gameKeys());
 const VALID_FORMATS = new Set(['BO1', 'BO3', 'BO5']);
 const VALID_STATUSES = new Set(['upcoming', 'ongoing', 'finished', 'cancelled', 'postponed']);
 

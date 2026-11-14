@@ -314,15 +314,9 @@
         let x = W - PAD;
         const format = String(match.format || '').toUpperCase();
         if (format) x -= pill(ctx, format, x, cy, { align: 'right', size: 24 }) + 12;
-        const game = match.game_type === 'valorant' ? 'VALORANT' : match.game_type === 'cs2' ? 'CS2' : '';
-        if (game) {
-            const isVal = match.game_type === 'valorant';
-            pill(ctx, game, x, cy, {
-                align: 'right', size: 24,
-                color: isVal ? '#ff8a96' : '#f2c46b',
-                bg: isVal ? 'rgba(255,70,85,0.12)' : 'rgba(242,182,50,0.10)',
-                border: isVal ? 'rgba(255,70,85,0.35)' : 'rgba(242,182,50,0.32)'
-            });
+        if (isGameKey(match.game_type)) {
+            const game = GAME_REGISTRY[match.game_type];
+            pill(ctx, game.pill, x, cy, { align: 'right', size: 24, ...game.sharePill });
         }
         ctx.fillStyle = C.line;
         ctx.fillRect(PAD, 128, W - PAD * 2, 2);

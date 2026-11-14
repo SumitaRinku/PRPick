@@ -73,11 +73,8 @@ function setStatus(status) {
     loadTournaments();
 }
 
-// 厂牌 chip 展示顺序（与服务端 BRAND_RULES 对应；全部游戏时取并集）
-const BRAND_ORDER = {
-    cs2: ['BLAST', 'EPL', 'IEM', 'PGL', 'XPL', 'Stake', 'PWE', 'EWC'],
-    valorant: ['Masters', 'Champions', 'EMEA', 'CN', 'AMER', 'Pacific', 'EWC']
-};
+// 厂牌 chip 展示顺序（见 games.js brandOrder，与服务端 brands 对应；全部游戏时按游戏顺序取并集）
+const BRAND_ORDER = Object.fromEntries(GAME_KEYS.map(key => [key, GAME_REGISTRY[key].brandOrder]));
 
 function setBrand(brand) {
     state.brand = brand;
@@ -95,9 +92,12 @@ function setTier(tier) {
 
 // 级别口径（与后端 tournamentTier.js 一致）只放在悬停提示里，不占页面文字
 const TIER_HINTS = {
-    cs2: { 1: 'Major 级顶级大赛', 2: 'BLAST / IEM / EPL 等常规国际赛事', 3: '预选赛' },
-    valorant: { 1: 'Masters / Champions 国际大赛', 2: '赛区联赛（EMEA / CN / AMER / Pacific）', 3: '预选赛' },
-    '': { 1: 'CS2 Major、Valorant Masters / Champions', 2: '其余常规赛事', 3: '预选赛' }
+    ...Object.fromEntries(GAME_KEYS.map(key => [key, GAME_REGISTRY[key].tierHints])),
+    '': {
+        1: GAME_KEYS.map(key => `${GAME_REGISTRY[key].label} ${GAME_REGISTRY[key].topTierWords.filter(word => /^[A-Za-z]/.test(word)).join(' / ')}`).join('、'),
+        2: '其余常规赛事',
+        3: '预选赛'
+    }
 };
 const TIER_LABELS = { 1: '顶级', 2: '常规', 3: '预选' };
 
@@ -121,7 +121,7 @@ function renderBrandChips() {
         state.brand = '';
         localStorage.setItem('tournamentBrandFilter', '');
     }
-    const order = BRAND_ORDER.cs2.concat(BRAND_ORDER.valorant.filter(b => !BRAND_ORDER.cs2.includes(b)));
+    const order = [...new Set(GAME_KEYS.flatMap(key => BRAND_ORDER[key]))];
     const keys = [...counts.keys()].sort((a, b) => {
         const ia = order.indexOf(a), ib = order.indexOf(b);
         return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
@@ -149,8 +149,9 @@ function filteredTournaments() {
 function tierBadge(tournament) {
     const name = tournament.name || '';
     if (tournament.effective_tier === 1) {
-        const keyword = name.match(/Major|Masters|Champions|大师赛|冠军赛/i);
-        const label = keyword ? keyword[0] : (tournament.game_type === 'valorant' ? 'Masters' : 'Major');
+        const keyword = name.match(new RegExp(gameTopTierWords().join('|'), 'i'));
+        const fallback = isGameKey(tournament.game_type) ? GAME_REGISTRY[tournament.game_type].topTierWords[0] : '顶级';
+        const label = keyword ? keyword[0] : fallback;
         return `<span class="tier-badge tier-top">${escapeHtml(label)}</span>`;
     }
     if (tournament.effective_tier === 3) return '<span class="tier-badge tier-low">预选</span>';

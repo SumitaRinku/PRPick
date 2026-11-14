@@ -8,6 +8,7 @@ const { syncPandascoreMatches, syncTournamentPreviews, syncStatus } = require('.
 const { runGridLiveTick, gridLiveStatus, linkMatchToSeries, unlinkMatch, getLink } = require('../services/gridLiveService');
 const { PREVIEW_DAYS, setSetting } = require('../services/settings');
 const { TIER_SQL } = require('../services/tournamentTier');
+const { isGame } = require('../config/games');
 const { isValidScore } = require('../utils/scoring');
 const { settleMatch, recalculateUserScores } = require('../utils/settlement');
 const { sniffImageType } = require('./images');
@@ -225,7 +226,7 @@ router.get('/tournaments', (req, res) => {
 router.post('/tournaments', (req, res) => {
     const { name, short_name, game_type = 'cs2', begin_at, end_at, is_active = 1 } = req.body;
     if (!name) return res.status(400).json({ error: '赛事名称不能为空' });
-    if (!['cs2', 'valorant'].includes(game_type)) return res.status(400).json({ error: '游戏类型无效' });
+    if (!isGame(game_type)) return res.status(400).json({ error: '游戏类型无效' });
     const result = db.prepare('INSERT INTO tournaments (name, short_name, game_type, is_active, name_locked, begin_at, end_at) VALUES (?, ?, ?, ?, 1, ?, ?)').run(name, short_name || null, game_type, is_active ? 1 : 0, begin_at || null, end_at || null);
     res.status(201).json({ id: result.lastInsertRowid });
 });
@@ -269,7 +270,7 @@ router.delete('/tournaments/:id/logo', (req, res) => {
 
 router.put('/tournaments/:id', (req, res) => {
     const { name, short_name, game_type, begin_at, end_at, is_active, tier } = req.body;
-    if (game_type && !['cs2', 'valorant'].includes(game_type)) return res.status(400).json({ error: '游戏类型无效' });
+    if (game_type && !isGame(game_type)) return res.status(400).json({ error: '游戏类型无效' });
     // 级别：未传字段保留现值；传 null/'' 清除（回到名称关键词自动推断）；传 1/2/3 手动固定，同步不覆盖。
     if (tier !== undefined && tier !== null && tier !== '' && ![1, 2, 3, '1', '2', '3'].includes(tier)) {
         return res.status(400).json({ error: '赛事级别无效' });
@@ -318,14 +319,14 @@ router.get('/teams', (req, res) => {
 router.post('/teams', (req, res) => {
     const { name, game_type = 'cs2', short_name, logo_url, country } = req.body;
     if (!name) return res.status(400).json({ error: '队伍名称不能为空' });
-    if (!['cs2', 'valorant'].includes(game_type)) return res.status(400).json({ error: '游戏类型无效' });
+    if (!isGame(game_type)) return res.status(400).json({ error: '游戏类型无效' });
     const result = db.prepare('INSERT INTO teams (name, game_type, short_name, logo_url, country) VALUES (?, ?, ?, ?, ?)').run(name, game_type, short_name || null, logo_url || null, country || null);
     res.status(201).json({ id: result.lastInsertRowid });
 });
 
 router.put('/teams/:id', (req, res) => {
     const { name, game_type, short_name, logo_url, country } = req.body;
-    if (game_type && !['cs2', 'valorant'].includes(game_type)) return res.status(400).json({ error: '游戏类型无效' });
+    if (game_type && !isGame(game_type)) return res.status(400).json({ error: '游戏类型无效' });
     const result = db.prepare(`
         UPDATE teams SET name = COALESCE(?, name), game_type = COALESCE(?, game_type), short_name = COALESCE(?, short_name), logo_url = COALESCE(?, logo_url), country = COALESCE(?, country) WHERE id = ?
     `).run(name || null, game_type || null, short_name || null, logo_url || null, country || null, req.params.id);

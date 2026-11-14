@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { isValidScore, maxScore } = require('../utils/scoring');
 const { recordPredictionHistory } = require('../utils/predictionHistory');
+const { GAMES, gameKeys, gameLabel } = require('../config/games');
 
 const idPattern = /^[1-9]\d{4,15}$/;
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -16,13 +17,14 @@ function groupByTournament(rows, formatRow) {
         groups.get(key).lines.push(formatRow(row));
     }
     return [...groups.values()].map(({ row, lines }) => {
-        const game = { cs2: 'CS2', valorant: 'Valorant' }[row.game_type] || row.game_type;
+        const game = gameLabel(row.game_type);
         const name = String(row.tournament_name || '').replace(/[\r\n]/g, ' ');
         return [`${name}（${game}）`, ...lines].join('\n');
     }).join('\n\n');
 }
 
-const GAME_FILTERS = { cs2: 'cs2', csgo: 'cs2', valorant: 'valorant', val: 'valorant', '无畏契约': 'valorant' };
+const GAME_FILTERS = Object.fromEntries(Object.values(GAMES).flatMap(game => game.aliases.map(alias => [alias, game.key])));
+const GAME_ARG = `[${gameKeys().join('/')}]`;
 const QUERY_PAGE_SIZE = { '赛程': 15, '我的': 10 };
 const beijingTime = time => new Date(Date.parse(time) + 8 * 3600000).toISOString().slice(5, 16).replace('T', ' ');
 
@@ -37,8 +39,8 @@ function queryFilters(action, args, now) {
         else if (action === '我的' && ['待开赛', '待结算', '已结算'].includes(arg) && !filter.status) filter.status = arg;
         else if (/^[1-9]\d{0,3}$/.test(arg) && !hasPage) { filter.page = Number(arg); hasPage = true; }
         else problem(action === '赛程'
-            ? '格式：/pick 赛程 [cs2/valorant] [今天/明天] [页码]，如 /pick 赛程 cs2 明天 2'
-            : '格式：/pick 我的 [待开赛/待结算/已结算] [cs2/valorant] [页码]，如 /pick 我的 待开赛 cs2 2');
+            ? `格式：/pick 赛程 ${GAME_ARG} [今天/明天] [页码]，如 /pick 赛程 cs2 明天 2`
+            : `格式：/pick 我的 [待开赛/待结算/已结算] ${GAME_ARG} [页码]，如 /pick 我的 待开赛 cs2 2`);
     }
     filter.args = [filter.status, filter.game, filter.day].filter(Boolean).join(' ');
     filter.size = QUERY_PAGE_SIZE[action];
@@ -153,11 +155,11 @@ function runCommand(db, input, options = {}) {
             '解绑 —— 解除绑定',
             '',
             '▶ 竞猜',
-            '赛程 [cs2/valorant] [今天/明天] [页码]',
+            `赛程 ${GAME_ARG} [今天/明天] [页码]`,
             '竞猜 / 修改 比赛ID 2:1',
             '取消 比赛ID',
             '回复机器人单场比赛消息 + 比分，也可提交或修改竞猜',
-            '我的 [待开赛/待结算/已结算] [cs2/valorant] [页码]',
+            `我的 [待开赛/待结算/已结算] ${GAME_ARG} [页码]`,
             '',
             '▶ 管理员',
             '开启竞猜 / 关闭竞猜 比赛ID',

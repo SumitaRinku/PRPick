@@ -6,8 +6,7 @@
     const logoUrl = url => !url ? '' : /^\/(?!\/)/.test(url) || url.startsWith('data:') ? url : `/api/images/team-logo?url=${encodeURIComponent(url)}`;
     const logo = url => url ? `<img src="${escape(logoUrl(url))}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'br-logo-empty'}))">` : '<i class="br-logo-empty"></i>';
 
-    const GAMES = { cs2: 'CS2', valorant: 'Valorant' };
-    const gameChip = game => GAMES[game] ? `<span class="br-game ${game === 'valorant' ? 'valorant' : ''}">${GAMES[game]}</span>` : '';
+    const gameChip = game => isGameKey(game) ? `<span class="br-game ${game === 'cs2' ? '' : escape(game)}">${escape(GAME_REGISTRY[game].label)}</span>` : '';
     // Tournament logo: admin upload first, then the site's curated mapping (tournament-logos.js).
     const brandLogo = brand => brand.logo || (typeof window.tournamentLogoUrl === 'function' ? window.tournamentLogoUrl(brand.fullName || brand.name, brand.game) : '');
     // A logo that fails to load falls back to the game chip in group headings and disappears in the header.
@@ -83,7 +82,7 @@
 
     window.renderReport = async function renderReport(card) {
         const root = document.getElementById('report');
-        root.dataset.theme = /^(cs2|valorant)$/.test(card.theme || '') ? card.theme : '';
+        root.dataset.theme = isGameKey(card.theme) ? card.theme : '';
         root.innerHTML = `<header class="br-head">
                 <div class="br-title">${brandMark(card.brand, false)}<div><h1>${escape(card.title)}</h1><p>${escape(card.subtitle)}</p></div></div>
                 <img src="/images/prpicklogo-light.png" alt="PRPICK">

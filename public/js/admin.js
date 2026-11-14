@@ -114,7 +114,7 @@ function previewLogo(p) {
     return html ? `<span class="ops-tlogo">${html}</span>` : '<span class="ops-tlogo ops-logo-empty"></span>';
 }
 
-const GAME_LABELS = { cs2: 'CS2', valorant: 'Valorant' };
+const GAME_LABELS = Object.fromEntries(GAME_KEYS.map(key => [key, GAME_REGISTRY[key].label]));
 const STATUS_LABELS = { upcoming: '未开始', ongoing: '进行中', finished: '已结算', cancelled: '已取消', postponed: '已延期' };
 const sourceOf = row => row.external_source || 'manual';
 const sourceLabel = row => (sourceOf(row) === 'pandascore' ? '自动同步' : '手动');
@@ -228,7 +228,7 @@ function select(name, options, current = '') {
     return `<select name="${name}">${options.map(([value, label]) => `<option value="${esc(value)}"${String(value) === String(current ?? '') ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
 }
 
-const GAME_OPTIONS = [['cs2', 'CS2'], ['valorant', 'Valorant']];
+const GAME_OPTIONS = GAME_KEYS.map(key => [key, GAME_REGISTRY[key].label]);
 
 // ---------- 登录 ----------
 

@@ -83,7 +83,7 @@ function sharedLogout() {
 }
 
 function gameName(game) {
-    return game === 'valorant' ? 'Valorant' : game === 'cs2' ? 'CS2' : '全部游戏';
+    return gameLabelOf(game);
 }
 
 // 赛事名展示：管理端可维护简称（tournaments.short_name）。

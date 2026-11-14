@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { GAMES: REGISTRY } = require('../config/games');
 const { settleMatch, recalculateUserScores } = require('../utils/settlement');
 const { getPreviewDays } = require('./settings');
 const { canonicalBracketMatchId, parseBracketPayload } = require('./bracketModel');
@@ -25,10 +26,12 @@ const DEFAULT_BRACKET_HISTORY_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MIN_BRACKET_HISTORY_INTERVAL_MS = 30 * 60 * 1000;
 const DEFAULT_BRACKET_CONCURRENCY = 4;
 const MAX_BRACKET_PAGES = 3;
-const GAMES = {
-    cs2: { endpoint: '/csgo/matches', seriesEndpoint: '/csgo/series/upcoming', label: 'CS2' },
-    valorant: { endpoint: '/valorant/matches', seriesEndpoint: '/valorant/series/upcoming', label: 'Valorant' }
-};
+// 由游戏注册表（server/config/games.js）派生，新增游戏无需改动这里。
+const GAMES = Object.fromEntries(Object.values(REGISTRY).map(game => [game.key, {
+    endpoint: game.pandascore.endpoint,
+    seriesEndpoint: game.pandascore.seriesEndpoint,
+    label: game.label
+}]));
 let timer = null;
 let previewTimer = null;
 let running = false;

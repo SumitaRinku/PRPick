@@ -1,38 +1,16 @@
 const express = require('express');
 const db = require('../config/database');
 const { TIER_SQL } = require('../services/tournamentTier');
+const { GAMES, isGame } = require('../config/games');
 const { getPreviewDays } = require('../services/settings');
 const { attachLiveScores } = require('../services/gridLiveService');
 
 const router = express.Router();
 
-// 厂牌关键词归类（赛事回看筛选用）：按数组顺序首次命中生效，顺序即优先级。
-// Valorant 的 EWC 必须排在赛区关键词之前，否则"EWC电竞世界杯2026 美洲预选赛"会误归 AMER。
-// 未命中返回 null，前端归入"其他"。仅查询时计算，不落库。
-const BRAND_RULES = {
-    cs2: [
-        ['BLAST', ['blast']],
-        ['IEM', ['iem']],
-        ['PGL', ['pgl']],
-        ['EPL', ['esl pro league', 'epl']],
-        ['XPL', ['xse pro league', 'xpl']],
-        ['Stake', ['stake']],
-        ['PWE', ['perfect world', 'cac', '完美世界']],
-        ['EWC', ['esports world cup', 'ewc', '电竞世界杯']]
-    ],
-    valorant: [
-        ['Masters', ['masters', '大师赛']],
-        ['Champions', ['champions', '冠军赛']],
-        ['EWC', ['esports world cup', 'ewc', '电竞世界杯']],
-        ['EMEA', ['emea']],
-        ['CN', ['china', 'cn es', '中国']],
-        ['AMER', ['americas', 'amer', '美洲']],
-        ['Pacific', ['pacific', '太平洋']]
-    ]
-};
-
+// 厂牌关键词归类（赛事回看筛选用）：规则见 server/config/games.js 的 brands，
+// 按数组顺序首次命中生效。未命中返回 null，前端归入"其他"。仅查询时计算，不落库。
 function brandOf(name, gameType) {
-    const rules = BRAND_RULES[gameType] || [];
+    const rules = (isGame(gameType) && GAMES[gameType].brands) || [];
     const lower = String(name || '').toLowerCase();
     for (const [brand, keys] of rules) {
         if (keys.some(key => lower.includes(key))) return brand;
