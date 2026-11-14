@@ -130,7 +130,7 @@ function fixture(handlers, env = {}) {
     const calls = [];
     const fetchImpl = async (url, init) => {
         const body = JSON.parse(init.body);
-        calls.push({ url, body });
+        calls.push({ url, body, key: init.headers['x-api-key'] });
         const handler = url.includes('series-state') ? handlers.state : handlers.central;
         return handler(body, calls.length);
     };
@@ -279,4 +279,86 @@ test('map results become one bot event each, skipping maps already finished on t
     state = { ...state, finished: true, games: [...state.games, game(3, 'ancient', 'navi', 13, 5)] };
     await service.runGridLiveTick('manual');
     assert.deepEqual(events()[1].series, { team1: 2, team2: 1, wins_needed: 2, decided: true });
+});
+
+// ===== 多游戏：按游戏用各自的 titleId / token，限额按 token 计 =====
+
+function addValorantMatch(db, time) {
+    db.prepare("INSERT INTO tournaments(id, name, game_type, is_active) VALUES(2, 'VCT Champions', 'valorant', 1)").run();
+    db.prepare("INSERT INTO teams(id, name, short_name, game_type) VALUES(11, 'Fnatic', 'FNC', 'valorant'), (12, 'Paper Rex', 'PRX', 'valorant')").run();
+    db.prepare("INSERT INTO matches(id, tournament_id, team1_id, team2_id, format, match_time, status) VALUES(11, 2, 11, 12, 'BO3', ?, 'ongoing')").run(time);
+}
+
+const allSeriesPage = nodes => jsonResponse({ data: { allSeries: { pageInfo: { hasNextPage: false }, edges: nodes.map(node => ({ node })) } } });
+
+test('each game is discovered with its own GRID title and token', async () => {
+    const { db, service, calls, soon } = fixture({
+        central: body => body.query.includes('titleId: 6')
+            ? allSeriesPage([gridSeries(600, soon, [['7', 'Paper Rex'], ['8', 'FNATIC']])])
+            : allSeriesPage([gridSeries(900, soon, [['52389', 'Parivision'], ['51814', 'Natus Vincere']])]),
+        state: () => jsonResponse({ data: { seriesState: null } })
+    }, { RIOT_GRID_API_TOKEN: 'riot-key' });
+    addValorantMatch(db, soon);
+
+    const result = await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.equal(result.discovery.linked, 2);
+    assert.equal(service.getLink(11).series_id, '600');
+    const discovery = calls.filter(call => call.url.includes('central-data'));
+    assert.deepEqual(discovery.map(call => [/titleId: (\d+)/.exec(call.body.query)[1], call.key]), [['28', 'test-key'], ['6', 'riot-key']]);
+    const polled = calls.filter(call => call.url.includes('series-state'));
+    assert.deepEqual(polled.map(call => [call.body.variables.id, call.key]).sort(), [['600', 'riot-key'], ['900', 'test-key']]);
+    assert.deepEqual([...service.gridLiveStatus().games.map(game => game.key)], ['cs2', 'valorant']);
+});
+
+test('GRID-TEST series that reuse real team names are never linked', async () => {
+    const { service, soon } = fixture({
+        central: () => allSeriesPage([{ ...gridSeries(28, soon, [['52389', 'Parivision'], ['51814', 'Natus Vincere']]), tournament: { name: 'GRID-TEST' } }]),
+        state: () => jsonResponse({ data: { seriesState: null } })
+    });
+    const result = await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.equal(result.discovery.linked, 0);
+    assert.equal(service.getLink(1), null);
+});
+
+test('a rate-limited Riot token does not hold back CS2 polling', async () => {
+    const polled = [];
+    const { db, service, soon } = fixture({
+        central: () => allSeriesPage([]),
+        state: (body, n) => {
+            const key = body.variables.id === '600' ? 'riot' : 'cs2';
+            polled.push(key);
+            return key === 'riot' ? jsonResponse({}, { status: 429, headers: { 'Retry-After': 60 } }) : jsonResponse({ data: { seriesState: null } });
+        }
+    }, { RIOT_GRID_API_TOKEN: 'riot-key' });
+    addValorantMatch(db, soon);
+    const insert = db.prepare("INSERT INTO match_live_links (match_id, series_id, link_method, team1_id, team_map, linked_at) VALUES (?, ?, 'auto', ?, '{}', ?)");
+    insert.run(1, '900', 1, soon);
+    insert.run(11, '600', 11, soon);
+
+    const first = await service.runGridLiveTick('manual');
+    assert.deepEqual(polled.sort(), ['cs2', 'riot']);
+    assert.match(first.poll.errors.join(), /Valorant: GRID 返回 429/);
+    db.prepare('UPDATE match_live_links SET last_polled_at = NULL').run();
+    await service.runGridLiveTick('manual');
+    assert.deepEqual(polled.sort(), ['cs2', 'cs2', 'riot'], 'riot token is backing off, CS2 keeps polling');
+});
+
+test('GRID_LIVE_GAMES limits which games use the API', async () => {
+    const { db, service, calls, soon } = fixture({
+        central: () => allSeriesPage([]),
+        state: () => jsonResponse({ data: { seriesState: null } })
+    }, { RIOT_GRID_API_TOKEN: 'riot-key', GRID_LIVE_GAMES: 'cs2' });
+    addValorantMatch(db, soon);
+    await service.runGridLiveTick('manual', { forceDiscovery: true });
+    assert.ok(calls.every(call => call.key === 'test-key'));
+    assert.deepEqual([...service.gridLiveStatus().games.map(game => game.key)], ['cs2']);
+});
+
+test('manual links refuse series from another game', async () => {
+    const { db, service, soon } = fixture({
+        central: () => jsonResponse({ data: { series: { ...gridSeries(900, soon, [['7', 'Paper Rex'], ['8', 'FNATIC']]), title: { id: '28' } } } }),
+        state: () => jsonResponse({ data: { seriesState: null } })
+    }, { RIOT_GRID_API_TOKEN: 'riot-key' });
+    addValorantMatch(db, soon);
+    await assert.rejects(service.linkMatchToSeries(11, '900'), /不是 Valorant/);
 });

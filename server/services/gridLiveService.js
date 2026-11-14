@@ -1,17 +1,22 @@
-// GRID Open Access 补充数据：CS2 实时比分与单图比分。
+// GRID Open Access 补充数据：实时比分与单图（单局）比分，覆盖游戏注册表里配置了 grid 的所有游戏。
 //
 // PandaScore 仍是赛程、赛果、赛程图与结算的唯一来源；这里只做展示层增强：
-//   1. 配对（discovery）：把近期 CS2 比赛按「双方队名 + 开赛时间」关联到 GRID series；
+//   1. 配对（discovery）：把近期比赛按「双方队名 + 开赛时间」关联到同游戏（titleId）的 GRID series；
 //   2. 轮询（poll）：对已开赛的关联比赛拉取 seriesState，写入系列赛比分与每张地图的回合比分。
 //
-// Open Access 限额很紧（实测 central-data 20 次/分钟，series-state 6 次/分钟），
-// 所以每轮只拉少量 seriesState，进行中的比赛优先，其余按上次拉取时间轮转。
+// Open Access 限额很紧（实测 central-data 20 次/分钟，series-state 6 次/分钟），且按 token 计：
+// CS2 用 GRID_API_TOKEN，Valorant / LoL 共用 RIOT_GRID_API_TOKEN。所以退避和每轮额度都按 token 算，
+// 同一 token 下的多个游戏共用额度、按上次拉取时间统一轮转。
+// 生产和本地开发若共用同一 token 也共享额度：本地可用 GRID_LIVE_ENABLED=false 关闭，
+// 或用 GRID_LIVE_GAMES=cs2 只开部分游戏。
 const db = require('../config/database');
+const { GAMES } = require('../config/games');
 const { pickSeriesForMatch, orientSeriesState } = require('./gridMatching');
 const { captureMapResults } = require('./botMapEvents');
 
 const SOURCE = 'grid';
-const CS2_TITLE_ID = 28;
+// GRID 用来测试数据管道的赛事，里面用的是真实队名（如 NAVI vs JDG），绝不能拿来配对。
+const TEST_TOURNAMENT = /^grid[-\s]?test/i;
 const DEFAULT_BASE_URL = 'https://api-op.grid.gg';
 const CENTRAL_PATH = '/central-data/graphql';
 const STATE_PATH = '/live-data-feed/series-state/graphql';
@@ -38,12 +43,33 @@ let lastDiscoveryAt = 0;
 const backoffUntil = new Map();
 const stats = { last_tick_at: null, last_discovery_at: null, last_error: null, linked_last_discovery: 0, polled_last_tick: 0 };
 
-function token() {
-    return (process.env.GRID_API_TOKEN || process.env.GRID_API_KEY || '').trim();
+function tokenValue(tokenEnv) {
+    // GRID_API_KEY：CS2 早期使用的变量名，保持兼容
+    const fallback = tokenEnv === 'GRID_API_TOKEN' ? process.env.GRID_API_KEY : '';
+    return (process.env[tokenEnv] || fallback || '').trim();
+}
+
+// GRID_LIVE_GAMES=cs2,valorant：只为列出的游戏拉取（留空 = 全部已配置 token 的游戏）
+function gameAllowList() {
+    const raw = String(process.env.GRID_LIVE_GAMES || '').trim();
+    return raw ? new Set(raw.split(',').map(value => value.trim().toLowerCase()).filter(Boolean)) : null;
+}
+
+// 已配置 GRID 的游戏：[{ key, label, titleId, tokenEnv }]
+function gridGames() {
+    const allow = gameAllowList();
+    return Object.values(GAMES)
+        .filter(game => game.grid?.titleId && game.grid.tokenEnv && tokenValue(game.grid.tokenEnv))
+        .filter(game => !allow || allow.has(game.key))
+        .map(game => ({ key: game.key, label: game.label, titleId: game.grid.titleId, tokenEnv: game.grid.tokenEnv }));
+}
+
+function gridGame(key) {
+    return gridGames().find(game => game.key === key) || null;
 }
 
 function enabled() {
-    return !!token() && process.env.GRID_LIVE_ENABLED !== 'false';
+    return gridGames().length > 0 && process.env.GRID_LIVE_ENABLED !== 'false';
 }
 
 function numberEnv(name, fallback, min, max = Infinity) {
@@ -59,8 +85,10 @@ const baseUrl = () => (process.env.GRID_BASE_URL || DEFAULT_BASE_URL).replace(/\
 
 class GridRateLimitError extends Error {}
 
-async function graphql(path, query, variables = {}) {
-    const blockedUntil = backoffUntil.get(path) || 0;
+// 限额按 token + 接口计：Riot token 被 429 时不影响 CS2 的请求。
+async function graphql(tokenEnv, path, query, variables = {}) {
+    const bucket = `${tokenEnv}|${path}`;
+    const blockedUntil = backoffUntil.get(bucket) || 0;
     if (blockedUntil > Date.now()) {
         throw new GridRateLimitError(`GRID 限流中，${Math.ceil((blockedUntil - Date.now()) / 1000)} 秒后重试`);
     }
@@ -69,7 +97,7 @@ async function graphql(path, query, variables = {}) {
     try {
         const response = await fetch(`${baseUrl()}${path}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': token() },
+            headers: { 'Content-Type': 'application/json', 'x-api-key': tokenValue(tokenEnv) },
             body: JSON.stringify({ query, variables }),
             signal: controller.signal
         });
@@ -77,11 +105,11 @@ async function graphql(path, query, variables = {}) {
         const resetSec = Number(response.headers.get('x-ratelimit-reset'));
         if (response.status === 429) {
             const retryAfter = Number(response.headers.get('retry-after')) || resetSec || 60;
-            backoffUntil.set(path, Date.now() + retryAfter * 1000);
+            backoffUntil.set(bucket, Date.now() + retryAfter * 1000);
             throw new GridRateLimitError(`GRID 返回 429，${retryAfter} 秒后重试`);
         }
         // 本窗口额度用完：主动等到重置，避免下一次请求直接 429。
-        if (remaining === 0 && resetSec > 0) backoffUntil.set(path, Date.now() + resetSec * 1000);
+        if (remaining === 0 && resetSec > 0) backoffUntil.set(bucket, Date.now() + resetSec * 1000);
         if (!response.ok) throw new Error(`GRID HTTP ${response.status}`);
         const payload = await response.json();
         if (payload.errors?.length && !payload.data) {
@@ -96,12 +124,14 @@ async function graphql(path, query, variables = {}) {
     }
 }
 
-const SERIES_FIELDS = 'id startTimeScheduled teams { baseInfo { id name nameShortened } }';
+const SERIES_FIELDS = 'id startTimeScheduled tournament { name } teams { baseInfo { id name nameShortened } }';
 
-async function fetchSeriesWindow(fromIso, toIso) {
+const isTestSeries = series => TEST_TOURNAMENT.test(String(series?.tournament?.name || ''));
+
+async function fetchSeriesWindow(game, fromIso, toIso) {
     const query = `query($after: Cursor, $from: String!, $to: String!) {
         allSeries(first: ${PAGE_SIZE}, after: $after, orderBy: StartTimeScheduled, orderDirection: ASC,
-            filter: { titleId: ${CS2_TITLE_ID}, startTimeScheduled: { gte: $from, lte: $to } }) {
+            filter: { titleId: ${Number(game.titleId)}, startTimeScheduled: { gte: $from, lte: $to } }) {
             pageInfo { hasNextPage endCursor }
             edges { node { ${SERIES_FIELDS} } }
         }
@@ -109,23 +139,23 @@ async function fetchSeriesWindow(fromIso, toIso) {
     const series = [];
     let after = null;
     for (let page = 0; page < MAX_PAGES; page++) {
-        const data = await graphql(CENTRAL_PATH, query, { after, from: fromIso, to: toIso });
+        const data = await graphql(game.tokenEnv, CENTRAL_PATH, query, { after, from: fromIso, to: toIso });
         const connection = data.allSeries;
         if (!connection) break;
-        series.push(...connection.edges.map(edge => edge.node));
+        series.push(...connection.edges.map(edge => edge.node).filter(node => !isTestSeries(node)));
         if (!connection.pageInfo?.hasNextPage) break;
         after = connection.pageInfo.endCursor;
     }
     return series;
 }
 
-async function fetchSeries(seriesId) {
-    const data = await graphql(CENTRAL_PATH, `query($id: ID!) { series(id: $id) { ${SERIES_FIELDS} title { id } } }`, { id: String(seriesId) });
+async function fetchSeries(game, seriesId) {
+    const data = await graphql(game.tokenEnv, CENTRAL_PATH, `query($id: ID!) { series(id: $id) { ${SERIES_FIELDS} title { id } } }`, { id: String(seriesId) });
     return data.series || null;
 }
 
-async function fetchSeriesState(seriesId) {
-    const data = await graphql(STATE_PATH, `query($id: ID!) {
+async function fetchSeriesState(game, seriesId) {
+    const data = await graphql(game.tokenEnv, STATE_PATH, `query($id: ID!) {
         seriesState(id: $id) {
             id started finished updatedAt
             teams { id name won score }
@@ -139,7 +169,7 @@ async function fetchSeriesState(seriesId) {
 const MATCH_COLUMNS = `m.id, m.match_time, m.status, m.team1_id, m.team2_id,
     t1.name team1_name, t1.short_name team1_short_name, t2.name team2_name, t2.short_name team2_short_name`;
 
-function discoveryCandidates(nowMs) {
+function discoveryCandidates(gameKey, nowMs) {
     return db.prepare(`
         SELECT ${MATCH_COLUMNS}
         FROM matches m
@@ -147,14 +177,14 @@ function discoveryCandidates(nowMs) {
         JOIN teams t1 ON t1.id = m.team1_id
         JOIN teams t2 ON t2.id = m.team2_id
         LEFT JOIN match_live_links l ON l.match_id = m.id
-        WHERE tour.game_type = 'cs2' AND tour.is_active = 1
+        WHERE tour.game_type = ? AND tour.is_active = 1
             AND t1.name <> 'TBD' AND t2.name <> 'TBD'
             AND l.match_id IS NULL
             AND m.status IN ('upcoming', 'ongoing', 'finished')
             AND datetime(m.match_time) BETWEEN datetime(?) AND datetime(?)
         ORDER BY m.match_time ASC
         LIMIT 80
-    `).all(new Date(nowMs - LOOKBACK_MS).toISOString(), new Date(nowMs + LOOKAHEAD_MS).toISOString());
+    `).all(gameKey, new Date(nowMs - LOOKBACK_MS).toISOString(), new Date(nowMs + LOOKAHEAD_MS).toISOString());
 }
 
 function insertLink(match, pick, method, now) {
@@ -169,18 +199,36 @@ function insertLink(match, pick, method, now) {
     `).run(match.id, SOURCE, String(pick.series.id), method, pick.score, match.team1_id, JSON.stringify(teamMap), now);
 }
 
+// 按游戏分别配对：一个游戏失败（如 Riot token 被限流）不影响其他游戏。
 async function discover(nowMs = Date.now()) {
-    const candidates = discoveryCandidates(nowMs);
     lastDiscoveryAt = nowMs;
     stats.last_discovery_at = new Date(nowMs).toISOString();
-    if (!candidates.length) {
-        stats.linked_last_discovery = 0;
-        return { candidates: 0, linked: 0 };
+    const total = { candidates: 0, series: 0, linked: 0, games: {} };
+    const errors = [];
+    for (const game of gridGames()) {
+        try {
+            const result = await discoverGame(game, nowMs);
+            total.games[game.key] = result;
+            total.candidates += result.candidates;
+            total.series += result.series || 0;
+            total.linked += result.linked;
+        } catch (error) {
+            total.games[game.key] = { error: error.message };
+            errors.push(`${game.label}: ${error.message}`);
+        }
     }
+    stats.linked_last_discovery = total.linked;
+    if (errors.length) total.error = errors.join('；');
+    return total;
+}
+
+async function discoverGame(game, nowMs) {
+    const candidates = discoveryCandidates(game.key, nowMs);
+    if (!candidates.length) return { candidates: 0, linked: 0 };
     const times = candidates.map(match => new Date(match.match_time).getTime());
     const from = new Date(Math.min(...times) - SERIES_TIME_SLACK_MS).toISOString();
     const to = new Date(Math.max(...times) + SERIES_TIME_SLACK_MS).toISOString();
-    const series = await fetchSeriesWindow(from, to);
+    const series = await fetchSeriesWindow(game, from, to);
 
     const taken = new Set(db.prepare('SELECT series_id FROM match_live_links WHERE source = ? AND series_id IS NOT NULL').all(SOURCE).map(row => row.series_id));
     const now = new Date(nowMs).toISOString();
@@ -195,19 +243,19 @@ async function discover(nowMs = Date.now()) {
         }
     });
     tx();
-    stats.linked_last_discovery = linked;
-    if (linked) console.log(`[GRID] 新关联 ${linked}/${candidates.length} 场比赛（窗口内 ${series.length} 个 series）`);
+    if (linked) console.log(`[GRID] ${game.label} 新关联 ${linked}/${candidates.length} 场比赛（窗口内 ${series.length} 个 series）`);
     return { candidates: candidates.length, series: series.length, linked };
 }
 
-function pollCandidates(nowMs, limit) {
+// gameKeys：共用同一 token 的游戏，一起按上次拉取时间轮转、共享这一 token 的每轮额度。
+function pollCandidates(gameKeys, nowMs, limit) {
     return db.prepare(`
-        SELECT l.*, m.team1_id match_team1_id, m.team2_id match_team2_id, m.match_time
+        SELECT l.*, m.team1_id match_team1_id, m.team2_id match_team2_id, m.match_time, tour.game_type
         FROM match_live_links l
         JOIN matches m ON m.id = l.match_id
         JOIN tournaments tour ON tour.id = m.tournament_id
         -- 只为管理员手动开启的赛事拉取实时数据（新赛事同步入库时默认关闭），节省 GRID 限额
-        WHERE tour.is_active = 1
+        WHERE tour.is_active = 1 AND tour.game_type IN (${gameKeys.map(() => '?').join(',')})
             AND l.source = ? AND l.series_id IS NOT NULL AND l.link_method != 'none'
             AND l.finished = 0 AND m.status != 'cancelled'
             AND datetime(m.match_time) <= datetime(?)
@@ -220,8 +268,18 @@ function pollCandidates(nowMs, limit) {
         -- 否则进行中的比赛数 ≥ 每轮额度时，刚开赛的比赛永远轮不到、也就永远显示不成进行中。
         ORDER BY COALESCE(l.last_polled_at, '') ASC, m.match_time ASC
         LIMIT ?
-    `).all(SOURCE, new Date(nowMs + POLL_LEAD_MS).toISOString(), new Date(nowMs - LOOKBACK_MS).toISOString(),
+    `).all(...gameKeys, SOURCE, new Date(nowMs + POLL_LEAD_MS).toISOString(), new Date(nowMs - LOOKBACK_MS).toISOString(),
         new Date(nowMs - STALE_UNSTARTED_MS).toISOString(), limit);
+}
+
+// 按 token 分组：{ tokenEnv: [game, ...] }
+function gamesByToken() {
+    const groups = new Map();
+    for (const game of gridGames()) {
+        if (!groups.has(game.tokenEnv)) groups.set(game.tokenEnv, []);
+        groups.get(game.tokenEnv).push(game);
+    }
+    return groups;
 }
 
 function dropLink(matchId) {
@@ -275,24 +333,29 @@ function applySeriesState(link, state, now) {
 }
 
 async function poll(nowMs = Date.now()) {
-    const links = pollCandidates(nowMs, stateBudget());
     const now = new Date(nowMs).toISOString();
     const outcome = { polled: 0, updated: 0, unlinked: 0, errors: [] };
-    for (const link of links) {
-        try {
-            const state = await fetchSeriesState(link.series_id);
-            const result = applySeriesState(link, state, now);
-            outcome.polled++;
-            if (result === 'updated') outcome.updated++;
-            if (result === 'unlinked') outcome.unlinked++;
-        } catch (error) {
-            if (error instanceof GridRateLimitError) {
-                outcome.errors.push(error.message);
-                break;
+    for (const games of gamesByToken().values()) {
+        const byKey = new Map(games.map(game => [game.key, game]));
+        const links = pollCandidates([...byKey.keys()], nowMs, stateBudget());
+        for (const link of links) {
+            const game = byKey.get(link.game_type);
+            try {
+                const state = await fetchSeriesState(game, link.series_id);
+                const result = applySeriesState(link, state, now);
+                outcome.polled++;
+                if (result === 'updated') outcome.updated++;
+                if (result === 'unlinked') outcome.unlinked++;
+            } catch (error) {
+                // 该 token 被限流：本轮跳过它剩下的比赛，其他 token 照常
+                if (error instanceof GridRateLimitError) {
+                    outcome.errors.push(`${game.label}: ${error.message}`);
+                    break;
+                }
+                db.prepare('UPDATE match_live_links SET last_polled_at = ?, last_error = ? WHERE match_id = ?')
+                    .run(now, error.message.slice(0, 300), link.match_id);
+                outcome.errors.push(`#${link.match_id}: ${error.message}`);
             }
-            db.prepare('UPDATE match_live_links SET last_polled_at = ?, last_error = ? WHERE match_id = ?')
-                .run(now, error.message.slice(0, 300), link.match_id);
-            outcome.errors.push(`#${link.match_id}: ${error.message}`);
         }
     }
     stats.polled_last_tick = outcome.polled;
@@ -307,13 +370,9 @@ async function runGridLiveTick(mode = 'scheduled', options = {}) {
     const result = { status: 'success' };
     try {
         if (options.forceDiscovery || nowMs - lastDiscoveryAt >= discoveryIntervalMs()) {
-            try {
-                result.discovery = await discover(nowMs);
-            } catch (error) {
-                // 配对失败不影响已关联比赛的轮询；1 分钟后重试，而不是等满整个配对间隔。
-                result.discovery = { error: error.message };
-                lastDiscoveryAt = nowMs - discoveryIntervalMs() + MIN_DISCOVERY_INTERVAL_MS;
-            }
+            result.discovery = await discover(nowMs);
+            // 配对失败不影响已关联比赛的轮询；1 分钟后重试，而不是等满整个配对间隔。
+            if (result.discovery.error) lastDiscoveryAt = nowMs - discoveryIntervalMs() + MIN_DISCOVERY_INTERVAL_MS;
         }
         result.poll = await poll(nowMs);
         const errors = [result.discovery?.error, ...(result.poll.errors || [])].filter(Boolean);
@@ -334,8 +393,9 @@ async function runGridLiveTick(mode = 'scheduled', options = {}) {
 
 function matchForLink(matchId) {
     return db.prepare(`
-        SELECT ${MATCH_COLUMNS}
+        SELECT ${MATCH_COLUMNS}, tour.game_type
         FROM matches m
+        JOIN tournaments tour ON tour.id = m.tournament_id
         JOIN teams t1 ON t1.id = m.team1_id
         JOIN teams t2 ON t2.id = m.team2_id
         WHERE m.id = ?
@@ -345,8 +405,13 @@ function matchForLink(matchId) {
 async function linkMatchToSeries(matchId, seriesId) {
     const match = matchForLink(matchId);
     if (!match) throw Object.assign(new Error('比赛不存在'), { status: 404 });
-    const series = await fetchSeries(seriesId);
+    const game = gridGame(match.game_type);
+    if (!game) throw Object.assign(new Error(`${GAMES[match.game_type]?.label || match.game_type} 未配置 GRID token`), { status: 400 });
+    const series = await fetchSeries(game, seriesId);
     if (!series) throw Object.assign(new Error('GRID series 不存在或无权访问'), { status: 404 });
+    if (series.title?.id != null && Number(series.title.id) !== Number(game.titleId)) {
+        throw Object.assign(new Error(`该 series 不是 ${game.label} 的比赛`), { status: 400 });
+    }
     const other = db.prepare('SELECT match_id FROM match_live_links WHERE source = ? AND series_id = ? AND match_id != ?').get(SOURCE, String(series.id), match.id);
     if (other) throw Object.assign(new Error(`该 series 已关联到比赛 #${other.match_id}`), { status: 409 });
     // 管理员指定时不限制时间和相似度，只用名称相似度判断主客方向。
@@ -432,7 +497,8 @@ function gridLiveStatus() {
     `).get(SOURCE);
     return {
         enabled: enabled(),
-        configured: !!token(),
+        configured: gridGames().length > 0,
+        games: gridGames().map(game => ({ key: game.key, title_id: game.titleId, token_env: game.tokenEnv })),
         running,
         interval_ms: intervalMs(),
         discovery_interval_ms: discoveryIntervalMs(),
@@ -444,7 +510,7 @@ function gridLiveStatus() {
 
 function startGridLiveService() {
     if (!enabled()) {
-        if (!token()) console.log('[GRID] GRID_API_TOKEN 未配置，实时比分关闭');
+        if (!gridGames().length) console.log('[GRID] 未配置任何游戏的 GRID token，实时比分关闭');
         return;
     }
     if (timer) return;
@@ -453,7 +519,7 @@ function startGridLiveService() {
     setTimeout(tick, 30000).unref?.();
     timer = setInterval(tick, intervalMs());
     timer.unref?.();
-    console.log(`[GRID] 实时比分已启用：每 ${intervalMs() / 1000}s 轮询，配对间隔 ${discoveryIntervalMs() / 1000}s`);
+    console.log(`[GRID] 实时比分已启用（${gridGames().map(game => game.label).join(' / ')}）：每 ${intervalMs() / 1000}s 轮询，配对间隔 ${discoveryIntervalMs() / 1000}s`);
 }
 
 module.exports = {
