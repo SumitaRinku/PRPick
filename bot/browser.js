@@ -100,6 +100,8 @@ async function withPage(config, profileRoot, task) {
         await client.send('Runtime.enable');
         // Light theme and a fixed 2x scale so text stays crisp after QQ compresses the image.
         await client.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+        // The site formats times in the browser's zone; reports are Beijing time whatever this machine is set to.
+        await client.send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Shanghai' });
         return await task(client);
     } finally {
         if (client) { await client.send('Browser.close').catch(() => {}); client.close(); }
@@ -157,10 +159,11 @@ function screenshotCard(config, profileDir, card, outFile) {
     });
 }
 
-// Header colours per game: CS2 blue, Valorant red.
+// Header colours per game: CS2 blue, Valorant red, LoL gold.
 const THEMES = {
     cs2: { head: '#16263a', accent: '#3d8bd9', sub: '#b6c6d8' },
-    valorant: { head: '#2b1519', accent: '#ff4655', sub: '#d9b9bd' }
+    valorant: { head: '#2b1519', accent: '#ff4655', sub: '#d9b9bd' },
+    lol: { head: '#1e1b12', accent: '#c89b3c', sub: '#d8cdb4' }
 };
 const theme = name => THEMES[name] || THEMES.cs2;
 

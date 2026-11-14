@@ -9,9 +9,10 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
 $spec = Get-Content -LiteralPath $SpecPath -Raw -Encoding UTF8 | ConvertFrom-Json
-# Game themes: CS2 blue, Valorant red.
+# Game themes: CS2 blue, Valorant red, LoL gold.
 $headBg = '#16263a'; $accent = '#3d8bd9'; $timeColor = '#2f6fb0'
 if ([string]$spec.theme -eq 'valorant') { $headBg = '#2b1519'; $accent = '#ff4655'; $timeColor = '#d23a48' }
+elseif ([string]$spec.theme -eq 'lol') { $headBg = '#1e1b12'; $accent = '#c89b3c'; $timeColor = '#a8802f' }
 elseif ([string]$spec.theme -ne 'cs2') { $headBg = '#202b38'; $accent = '#5a8fc1'; $timeColor = '#2f6fa7' }
 $scale = 2
 $W = 640

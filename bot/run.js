@@ -8,7 +8,7 @@ const { DAY, iso, bounds, freshness, splitMessage, splitMatchMessage, dailyRepor
 const { screenshotCard, screenshotBracket } = require('./browser');
 
 function readConfig(file) {
-    const config = { games: ['cs2', 'valorant'], dailyTime: '12:00', dayStart: '06:00', earlyMinutes: 10,
+    const config = { games: ['cs2', 'valorant', 'lol'], dailyTime: '12:00', dayStart: '06:00', earlyMinutes: 10,
         reminderMinutes: 30, slipMinutes: 180, remindAgainMinutes: 60, weeklyEnabled: true, weeklyTime: '20:00', resultsLimit: 12,
         freshnessMinutes: 20, pollSeconds: 60, lockPort: 39173, dryRun: true,
         commandGroupIds: [], eventPort: 3002, eventSecret: '', imageReports: true, siteImages: true, roundImages: true, dailyBrackets: true, edgePath: '', liveMapResults: 'predicted',
@@ -29,7 +29,7 @@ function readConfig(file) {
     if (config.commandGroupIds.length && (typeof config.eventSecret !== 'string' || config.eventSecret.length < 16 || config.eventSecret.includes('填写'))) throw new Error('启用群指令需设置至少16字符的 eventSecret，并填入 NapCat HTTP 客户端 secret');
     if (!Number.isInteger(config.eventPort) || config.eventPort < 1024 || config.eventPort > 65535 || config.eventPort === config.lockPort) throw new Error('eventPort 必须是独立的有效端口');
     if (!['predicted', 'all', 'off'].includes(config.liveMapResults)) throw new Error('liveMapResults 只支持 predicted / all / off');
-    if (!Array.isArray(config.games) || !config.games.length || config.games.some(game => !['cs2', 'valorant'].includes(game))) throw new Error('games 只支持 cs2 / valorant');
+    if (!Array.isArray(config.games) || !config.games.length || config.games.some(game => !['cs2', 'valorant', 'lol'].includes(game))) throw new Error('games 只支持 cs2 / valorant / lol');
     for (const name of ['dailyTime', 'dayStart', 'weeklyTime']) {
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(config[name])) throw new Error(`${name} 应为 HH:mm`);
     }

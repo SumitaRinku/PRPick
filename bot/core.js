@@ -8,7 +8,8 @@ const minutes = time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 const at = (day, time) => day + minutes(time) * 60000;
 const label = ms => new Date(ms + OFFSET).toISOString().slice(5, 16).replace('T', ' ').replace('-', '/');
 const clean = value => String(value || '').replace(/[\r\n\x00-\x1f]/g, ' ').slice(0, 160);
-const gameLabel = game => game === 'cs2' ? 'CS2' : 'Valorant';
+const GAME_LABELS = { cs2: 'CS2', valorant: 'Valorant', lol: 'LoL' };
+const gameLabel = game => GAME_LABELS[game] || String(game || '').toUpperCase();
 const tournamentName = m => clean(m.tournament_short_name || m.tournament_name);
 // Text headings name the game after the tournament: "IEM Cologne（CS2）".
 const title = m => `${tournamentName(m)}（${gameLabel(m.game_type)}）`;
