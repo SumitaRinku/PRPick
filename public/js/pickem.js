@@ -52,7 +52,14 @@ function pkStage(stageId) {
     return pickem.data?.stages.find(stage => stage.id === Number(stageId));
 }
 
+// 显示用：有草稿（用户改过）用草稿，否则直接取已保存的竞猜。
+// 只读时不创建草稿，避免服务器数据更新后一份没动过的旧草稿被误判为「未保存的修改」。
 function pkDraft(stage) {
+    return pickem.drafts.get(stage.id) || pkFromApi(stage.config, stage.mine?.picks);
+}
+
+// 编辑用：首次修改时才从已保存的竞猜复制出草稿。
+function pkEditDraft(stage) {
     if (!pickem.drafts.has(stage.id)) pickem.drafts.set(stage.id, pkFromApi(stage.config, stage.mine?.picks));
     return pickem.drafts.get(stage.id);
 }
@@ -215,7 +222,8 @@ function pkCoinPanel() {
     const pct = Math.min(100, me.points / max * 100);
     const next = me.coin?.next ? `再得 <b>${me.coin.next.need}</b> 分升级${pkEsc(me.coin.next.label)}` : '已获得最高等级';
     return `<section class="pk-coin-panel">
-        <div class="pk-coin-head">${pkCoinIcon(me.coin.key, 'lg')}<div><b>${pkEsc(me.coin.label)}</b><small>${me.points}/${max} 分 · ${next}</small></div></div>
+        <div class="pk-coin-head">${pkCoinIcon(me.coin.key, 'lg')}<div><b>${pkEsc(me.coin.label)}</b><small>${me.points}/${max} 分 · ${next}</small></div>
+            ${typeof sharePickemSummary === 'function' ? '<button type="button" class="pk-share-btn" onclick="sharePickemSummary()">分享我的作业</button>' : ''}</div>
         <div class="pk-coin-bar"><i style="width:${pct}%"></i>${ticks}</div>
         ${legend}
     </section>`;
@@ -279,7 +287,7 @@ function pkToggleTeam(stageId, teamId) {
     const stage = pkStage(stageId);
     if (!stage || !pkEditable(stage)) return;
     const slots = pkSlots(stage.config);
-    const draft = pkDraft(stage);
+    const draft = pkEditDraft(stage);
     const activeKey = pkActiveSlot(stage);
     const slot = slots.find(item => item.key === activeKey);
     const list = draft[activeKey] || (draft[activeKey] = []);
@@ -338,6 +346,31 @@ async function pkClear(stageId) {
     }
 }
 
+// 分享图数据（pickem-share.js 使用）：只含当前用户已保存竞猜的阶段，草稿不计入。
+function getPickemShareData() {
+    const data = pickem.data;
+    if (!data?.me?.participated || !sharedState.user) return null;
+    const stages = data.stages.filter(stage => stage.mine).map(stage => {
+        const teams = pkTeamMap(stage);
+        const picks = pkFromApi(stage.config, stage.mine.picks);
+        return {
+            id: stage.id,
+            name: typeof stageLabel === 'function' ? stageLabel(stage.name) : stage.name,
+            kind: stage.config.kind,
+            kindText: pkKindText(stage.config),
+            locked: stage.locked,
+            lockAt: stage.lock_at,
+            maxPoints: stage.config.max_points,
+            result: stage.mine.result,
+            slots: pkSlots(stage.config).map(slot => ({
+                ...slot,
+                picks: (picks[slot.key] || []).map(id => ({ team: teams.get(id) || { id, name: '?' }, result: pkResultOf(stage, slot.key, id) || 'pending' }))
+            }))
+        };
+    });
+    return { tournament: data.tournament, coins: data.coins, me: data.me, user: sharedState.user, stages };
+}
+
 // 登录状态变化：重新取数（个人竞猜与可编辑状态随之变化）
 window.addEventListener('auth-changed', () => {
     if (!document.getElementById('pkRoot')) return;
@@ -346,6 +379,7 @@ window.addEventListener('auth-changed', () => {
 });
 
 window.tournamentPickemContainer = tournamentPickemContainer;
+window.getPickemShareData = getPickemShareData;
 window.pkSelectSlot = pkSelectSlot;
 window.pkToggleTeam = pkToggleTeam;
 window.pkReset = pkReset;

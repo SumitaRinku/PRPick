@@ -47,7 +47,7 @@
     };
 
     let fontsReady = false;
-    let currentMatch = null;
+    let currentFileName = 'prpick-share.png';
     let currentBlob = null;
 
     // ---------- 资源加载 ----------
@@ -652,7 +652,7 @@
     // ---------- 弹窗 ----------
 
     function fileName() {
-        return `prpick-${currentMatch ? currentMatch.id : 'share'}.png`;
+        return currentFileName;
     }
 
     function flash(modal, message) {
@@ -732,19 +732,26 @@
         if (!match || !match.user_prediction) return;
         const user = context.user;
         if (!user) return;
+        await showCanvas(() => renderShareCard(match, user), { title: '分享我的竞猜', fileName: `prpick-${match.id}.png` });
+    }
+
+    // 通用分享弹窗：render 返回 canvas；tall = 长图（不按 4:5 裁切预览，可滚动查看）
+    async function showCanvas(render, { title = '分享我的竞猜', fileName: name = 'prpick-share.png', tall = false } = {}) {
         const modal = ensureModal();
         const img = modal.querySelector('#shareImage');
         const wrap = modal.querySelector('.share-canvas-wrap');
+        modal.querySelector('#shareTitle').textContent = title;
+        wrap.classList.toggle('tall', tall);
         img.removeAttribute('src');
         currentBlob = null;
+        currentFileName = name;
         modal.querySelector('#shareCopy').hidden = true;
         modal.querySelector('#shareNative').hidden = true;
         wrap.classList.add('loading');
         modal.removeAttribute('hidden');
         document.body.classList.add('modal-open');
         try {
-            currentMatch = match;
-            const canvas = await renderShareCard(match, user);
+            const canvas = await render();
             img.src = canvas.toDataURL('image/png');
             currentBlob = await canvasToBlob(canvas);
             if (currentBlob) {
@@ -768,6 +775,13 @@
 
     window.sharePrediction = sharePrediction;
     window.closeShareModal = closeShareModal;
+    // 其他分享图（如 pickem-share.js 的 Pick'em 作业总图）复用的绘图工具与弹窗
+    window.PrpickShare = {
+        C, PAD, SITE_URL, SITE_LABEL,
+        loadFonts, loadImage, loadFirst, loadTeamLogo, loadTournamentLogo, analyzeLogo, glowColor,
+        text, measure, pill, roundRect, drawContain, withAlpha, fitText,
+        showCanvas
+    };
     // 供测试 / 调试直接渲染（不弹窗）
     window.renderPrpickShareCard = renderShareCard;
 })();

@@ -179,3 +179,11 @@ button.pk-team:hover{border-color:var(--primary-color);transform:none}
 @media(max-width:360px){
   .pk-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* 分享作业：硬币面板右侧按钮 */
+.pk-coin-head .pk-share-btn{margin-left:auto;flex:0 0 auto;padding:6px 12px;font-size:.8rem}
+@media(max-width:760px){.pk-coin-head{flex-wrap:wrap}.pk-coin-head .pk-share-btn{width:100%;margin-left:0;min-height:38px}}
+
+/* 分享弹窗：Pick'em 作业总图是长图，预览不按 4:5 裁切，可在框内滚动查看 */
+.share-canvas-wrap.tall{display:block;aspect-ratio:auto;max-height:68vh;overflow-y:auto}
+.share-canvas-wrap.tall img{height:auto;object-fit:initial}
