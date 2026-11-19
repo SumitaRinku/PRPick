@@ -660,7 +660,7 @@ const tournamentsView = {
                 <td class="center ops-mono">${t.match_count}</td>
                 <td class="center"><span class="ops-pill muted">${sourceLabel(t)}</span></td>
                 <td class="center">${act(t.is_active ? '启用' : '禁用', 'tournament-toggle', t.id, `toggle ${t.is_active ? 'on' : 'off'}`)}</td>
-                <td class="right"><div class="ops-acts">${act('编辑', 'tournament-edit', t.id)}${act(uploaded ? '换 Logo' : '传 Logo', 'tournament-logo', t.id)}${uploaded ? act('删 Logo', 'tournament-logo-remove', t.id, 'danger') : ''}${act('删除', 'tournament-delete', t.id, 'danger')}</div></td>
+                <td class="right"><div class="ops-acts">${act('编辑', 'tournament-edit', t.id)}${act("Pick'em", 'tournament-pickem', t.id)}${act(uploaded ? '换 Logo' : '传 Logo', 'tournament-logo', t.id)}${uploaded ? act('删 Logo', 'tournament-logo-remove', t.id, 'danger') : ''}${act('删除', 'tournament-delete', t.id, 'danger')}</div></td>
             </tr>`;
         });
     }
@@ -1029,6 +1029,54 @@ function deleteTournament(id) {
 }
 
 // 手动上传赛事 logo：二进制直传，成功后覆盖名称匹配的默认 logo
+// Pick'em 阶段设置：默认按阶段名称与赛程自动识别，可逐阶段关闭或手动指定参数。
+const PICKEM_MODES = [['auto', '自动识别'], ['off', '关闭'], ['record', '战绩门槛（瑞士轮 / GSL）'], ['elimination', '淘汰赛']];
+
+function pickemConfigText(config) {
+    if (!config) return '未开放';
+    if (config.kind === 'record') return `${config.wins} 胜晋级 / ${config.losses} 负淘汰 · 全胜 ${config.top_count} · 晋级 ${config.advance_count} · 全败 ${config.bottom_count}`;
+    return `淘汰赛 · 冠军 + 亚军 + 四强 ${config.semi_count}`;
+}
+
+async function editTournamentPickem(id) {
+    const t = requireRow(state.tournaments, id, '赛事');
+    const data = await api(`/pickem/admin/tournaments/${t.id}`);
+    if (!data.stages.length) { toast('该赛事暂无阶段数据', 'bad'); return; }
+    const num = (stage, key, fallback) => {
+        const value = stage.override?.[key] ?? stage.config?.[key] ?? stage.detected?.[key] ?? fallback;
+        return `<input name="${key}_${stage.id}" type="number" min="0" max="16" step="1" value="${esc(value)}">`;
+    };
+    const body = data.stages.map(stage => `<fieldset class="ops-field wide ops-pickem-stage" data-stage="${stage.id}">
+        <legend><b>${esc(stage.name || `阶段 #${stage.id}`)}</b> <small class="ops-muted">${stage.team_count} 队 · ${stage.match_count} 场 · ${stage.participants} 人已竞猜${stage.locked ? ' · 已锁定' : ''}</small></legend>
+        <small class="ops-block">自动识别：${esc(stage.detected ? pickemConfigText(stage.detected) : `未开放（${stage.reason || '无法识别'}）`)}</small>
+        <small class="ops-block">当前生效：${esc(pickemConfigText(stage.config))}</small>
+        ${select(`mode_${stage.id}`, PICKEM_MODES, stage.mode)}
+        <div class="ops-pickem-record">
+            <label>晋级胜场 ${num(stage, 'wins', 3)}</label><label>淘汰负场 ${num(stage, 'losses', 3)}</label>
+            <label>全胜名额 ${num(stage, 'top_count', 2)}</label><label>晋级名额 ${num(stage, 'advance_count', 6)}</label><label>全败名额 ${num(stage, 'bottom_count', 2)}</label>
+        </div>
+    </fieldset>`).join('');
+    openModal({
+        title: `Pick'em 设置 · ${t.name}`,
+        hint: '战绩参数仅在选择「战绩门槛」时生效。修改已有竞猜阶段的类型会使旧竞猜无法计分。',
+        body,
+        onSubmit: async values => {
+            let changed = 0;
+            for (const stage of data.stages) {
+                const mode = values[`mode_${stage.id}`];
+                const config = mode === 'record'
+                    ? Object.fromEntries(['wins', 'losses', 'top_count', 'bottom_count', 'advance_count'].map(key => [key, Number(values[`${key}_${stage.id}`])]))
+                    : undefined;
+                const before = JSON.stringify([stage.mode, stage.mode === 'record' ? stage.override : undefined]);
+                if (before === JSON.stringify([mode, config])) continue;
+                await api(`/pickem/admin/stages/${stage.id}`, { method: 'PUT', body: { mode, config } });
+                changed += 1;
+            }
+            return changed ? `已更新 ${changed} 个阶段` : '没有改动';
+        }
+    });
+}
+
 function uploadTournamentLogo(id) {
     const picker = document.createElement('input');
     picker.type = 'file';
@@ -1222,6 +1270,7 @@ const ACTIONS = {
     'team-create': createTeam,
     'team-edit': el => editTeam(el.dataset.id),
     'team-delete': el => deleteTeam(el.dataset.id),
+    'tournament-pickem': el => editTournamentPickem(el.dataset.id),
     'user-create': createUser,
     'user-role': el => toggleRole(el.dataset.id),
     'user-password': el => resetPassword(el.dataset.id),

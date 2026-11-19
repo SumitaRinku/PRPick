@@ -304,6 +304,7 @@ function ensureDatabase() {
 
     require('./bot-schema').ensureBotSchema(db);
     require('./live-schema').ensureLiveSchema(db);
+    require('./pickem-schema').ensurePickemSchema(db);
 
     const predictionColumns = db.prepare('PRAGMA table_info(predictions)').all().map(column => column.name);
     if (predictionColumns.includes('streak_bonus')) {

@@ -11,8 +11,9 @@ const state = {
     activeTournamentId: new URLSearchParams(location.search).get('tournament') || '',
     activeTournamentData: null,
     activeStageKey: '',
-    // 赛事详情：schedule（赛程）/ stats（数据统计，GRID 每局详细数据汇总）
-    detailView: 'schedule',
+    // 赛事详情：schedule（赛程）/ stats（数据统计，GRID 每局详细数据汇总）/ pickem（整体竞猜）
+    detailView: new URLSearchParams(location.search).get('view') || 'schedule',
+    pickemOpen: [],
     previews: [],
     previewDays: 0
 };
@@ -65,6 +66,7 @@ function setGame(game) {
     updateTournamentUrl();
     renderTierChips();
     renderPreviews();
+    renderPickemOpen();
     loadTournaments();
 }
 
@@ -270,12 +272,53 @@ function renderPreviews() {
     previewListEl.innerHTML = rows.map(previewItem).join('');
 }
 
+// 列表页入口：正在开放提交的 Pick'em，每个赛事一张卡片（多个小组合并），按最早截止排序，跟随游戏筛选
+function renderPickemOpen() {
+    const el = document.querySelector('#pickemOpen');
+    if (!el) return;
+    const byTournament = new Map();
+    for (const item of state.pickemOpen) {
+        if (state.game && item.tournament.game_type !== state.game) continue;
+        const entry = byTournament.get(item.tournament.id) || { tournament: item.tournament, stages: [] };
+        entry.stages.push(item);
+        byTournament.set(item.tournament.id, entry);
+    }
+    const label = name => (typeof stageLabel === 'function' ? stageLabel(name) : name);
+    const cards = [...byTournament.values()];
+    el.hidden = Boolean(state.activeTournamentId) || !cards.length;
+    el.innerHTML = cards.slice(0, 6).map(({ tournament, stages }) => {
+        const first = stages[0]; // 接口已按截止时间升序
+        const what = stages.length > 1 ? `${stages.length} 个阶段开放` : label(first.stage_name);
+        return `<a class="rv-pk-open" href="/tournaments.html?tournament=${tournament.id}&view=pickem" onclick="openPickemFromList(event, ${tournament.id})">
+        <span class="rv-pk-tag">Pick'em</span>
+        <span class="rv-logo">${tournamentLogoHtml(tournament)}</span>
+        <span class="rv-pk-text"><b title="${escapeHtml(tournament.name)}">${escapeHtml(tournament.short_name || tournament.name)}</b><small>${escapeHtml(what)} · ${escapeHtml(formatDateTime(first.lock_at))} 截止</small></span>
+        <span class="rv-pk-go">去竞猜 ›</span>
+    </a>`;
+    }).join('');
+}
+
+function openPickemFromList(event, id) {
+    event.preventDefault();
+    enterTournament(id, 'pickem');
+}
+
+async function loadPickemOpen() {
+    try {
+        state.pickemOpen = (await sharedApi('/pickem/open')).open || [];
+    } catch {
+        state.pickemOpen = [];
+    }
+    renderPickemOpen();
+}
+
 async function loadPreviews() {
     try {
         const data = await sharedApi('/tournaments/previews');
         state.previews = data.previews || [];
         state.previewDays = data.days || 0;
         renderPreviews();
+        renderPickemOpen();
     } catch (error) {
         console.warn('[previews]', error.message);
     }
@@ -286,6 +329,7 @@ function applyPageMode() {
     const detail = Boolean(state.activeTournamentId);
     if (toolbarEl) toolbarEl.hidden = detail;
     if (detail && previewSectionEl) previewSectionEl.hidden = true;
+    if (detail) document.querySelector('#pickemOpen')?.setAttribute('hidden', '');
     tournamentsEl?.classList.toggle('rv-list', !detail);
     tournamentsEl?.classList.toggle('rv-detail-host', detail);
 }
@@ -294,6 +338,8 @@ function updateTournamentUrl(push = false) {
     const url = new URL(location.href);
     if (state.activeTournamentId) url.searchParams.set('tournament', state.activeTournamentId);
     else url.searchParams.delete('tournament');
+    if (state.activeTournamentId && state.detailView !== 'schedule') url.searchParams.set('view', state.detailView);
+    else url.searchParams.delete('view');
     if (push) {
         // 从列表进入详情时新增历史记录，浏览器后退即回到列表
         url.hash = '';
@@ -450,7 +496,10 @@ function tournamentDetailPage(data) {
     const stageTotal = new Set(stages.flatMap(stage => stageMatches(stage)).filter(match => match.id).map(match => String(match.id))).size;
     const notice = stageTotal === matches.length ? '' : `<p class="rv-notice">部分比赛暂未归入阶段（${stageTotal}/${matches.length}）</p>`;
     const hasStats = (tournament.stats_games || 0) > 0 && typeof tournamentStatsContainer === 'function';
-    const view = hasStats ? state.detailView : 'schedule';
+    // 只在有阶段开放中、或已有人参与时显示（上线前已结束的旧赛事不出现空的 Pick'em 页）
+    const hasPickem = (data.pickem?.stages || []).some(stage => !stage.locked || stage.participants > 0) && typeof tournamentPickemContainer === 'function';
+    const view = (state.detailView === 'stats' && hasStats) || (state.detailView === 'pickem' && hasPickem) ? state.detailView : 'schedule';
+    const pickemOpen = hasPickem && data.pickem.stages.some(stage => !stage.locked);
     return `<section class="rv-detail">
         <button type="button" class="rv-back" onclick="backToTournamentList()">‹ 赛事回看</button>
         <header class="rv-hero ${tournament.game_type}">
@@ -465,11 +514,13 @@ function tournamentDetailPage(data) {
                 <span class="rv-progress"><i style="width:${progress}%"></i></span>
             </div>
         </header>
-        ${hasStats ? `<nav class="rv-view-switch" role="tablist" aria-label="赛事视图">
+        ${hasStats || hasPickem ? `<nav class="rv-view-switch" role="tablist" aria-label="赛事视图">
             <button type="button" role="tab" class="${view === 'schedule' ? 'active' : ''}" onclick="setDetailView('schedule')">赛程</button>
-            <button type="button" role="tab" class="${view === 'stats' ? 'active' : ''}" onclick="setDetailView('stats')">数据</button>
+            ${hasStats ? `<button type="button" role="tab" class="${view === 'stats' ? 'active' : ''}" onclick="setDetailView('stats')">数据</button>` : ''}
+            ${hasPickem ? `<button type="button" role="tab" class="${view === 'pickem' ? 'active' : ''}" onclick="setDetailView('pickem')">Pick'em${pickemOpen ? '<i class="rv-pk-dot" aria-label="开放中"></i>' : ''}</button>` : ''}
         </nav>` : ''}
-        ${view === 'stats' ? tournamentStatsContainer(tournament.id, tournament.game_type) : `${notice}
+        ${view === 'stats' ? tournamentStatsContainer(tournament.id, tournament.game_type)
+        : view === 'pickem' ? tournamentPickemContainer(tournament.id, data.pickem) : `${notice}
         ${stageTabs(stages)}
         <div class="ar-focus-stages rv-stages">${stages.map(stagePanel).join('') || '<div class="rv-empty">暂无比赛</div>'}</div>`}
     </section>`;
@@ -485,7 +536,8 @@ window.addEventListener('resize', () => {
 });
 
 function setDetailView(view) {
-    state.detailView = view === 'stats' ? 'stats' : 'schedule';
+    state.detailView = ['stats', 'pickem'].includes(view) ? view : 'schedule';
+    updateTournamentUrl();
     if (state.activeTournamentData && tournamentsEl) tournamentsEl.innerHTML = tournamentDetailPage(state.activeTournamentData);
 }
 
@@ -493,7 +545,7 @@ async function openTournamentPage(id) {
     if (!tournamentsEl) return;
     if (String(id) !== state.activeTournamentId || !state.activeTournamentData) {
         state.activeStageKey = '';
-        state.detailView = 'schedule';
+        state.detailView = new URLSearchParams(location.search).get('view') || 'schedule';
     }
     state.activeTournamentId = String(id);
     state.activeTournamentData = null;
@@ -502,11 +554,12 @@ async function openTournamentPage(id) {
     tournamentsEl.innerHTML = '<div class="rv-loading">加载中…</div>';
     try {
         // bracket 是增强数据：失败时照常展示比赛列表和旧推断赛程图。
-        const [detail, bracket] = await Promise.all([
+        const [detail, bracket, pickemData] = await Promise.all([
             sharedApi(`/tournaments/${id}`),
-            sharedApi(`/tournaments/${id}/brackets`).catch(() => null)
+            sharedApi(`/tournaments/${id}/brackets`).catch(() => null),
+            sharedApi(`/pickem/tournaments/${id}`).catch(() => null)
         ]);
-        const data = { ...detail, bracketStages: (bracket && bracket.stages) || [] };
+        const data = { ...detail, bracketStages: (bracket && bracket.stages) || [], pickem: pickemData };
         state.activeTournamentData = data;
         tournamentsEl.innerHTML = tournamentDetailPage(data);
         const matchAnchor = location.hash.match(/^#match-row-(\d+)$/);
@@ -519,9 +572,10 @@ async function openTournamentPage(id) {
 }
 
 // 列表卡片入口：记录列表滚动位置并新增历史记录
-function enterTournament(id) {
+function enterTournament(id, view = 'schedule') {
     state.listScrollY = window.scrollY;
     state.activeTournamentId = String(id);
+    state.detailView = view;
     updateTournamentUrl(true);
     window.scrollTo(0, 0);
     openTournamentPage(id);
@@ -537,6 +591,7 @@ function showTournamentList() {
         syncSegments();
         renderArchiveList();
         renderPreviews();
+        renderPickemOpen();
         requestAnimationFrame(restore);
     } else loadTournaments().then(restore);
 }
@@ -616,6 +671,7 @@ async function loadTournaments() {
     renderTierChips();
     renderArchiveList();
     renderPreviews();
+    renderPickemOpen();
 }
 
 // ---------- 回到顶部悬浮按钮：下滑超过一屏后出现在右下角 ----------
@@ -646,6 +702,7 @@ window.backToTournamentList = backToTournamentList;
 window.showMatchPredictions = showMatchPredictions;
 window.focusTournamentMatch = focusTournamentMatch;
 window.setDetailView = setDetailView;
+window.openPickemFromList = openPickemFromList;
 window.openTournamentStage = openTournamentStage;
 window.closeDetailModal = closeDetailModal;
 // showMatchHead2Head 由 /js/h2h.js、showMatchCenter 由 /js/match-center.js 提供
@@ -673,6 +730,7 @@ loadTournaments().catch(error => {
     console.error(error);
 });
 loadPreviews();
+loadPickemOpen();
 
 // 详情页：有实时比分（GRID）的比赛每 30 秒局部刷新——只替换对应比赛行，
 // 不重绘整页与赛程图；页面在后台时不刷新。

@@ -1,0 +1,181 @@
+/* 赛事整体竞猜（Pick'em）：赛事回看详情页视图 + 列表页入口。颜色全部取自全局主题变量，明暗主题自动适配。 */
+
+.rv-pk-dot{display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;background:var(--success-color);vertical-align:middle}
+
+/* 列表页入口 */
+.rv-pk-open-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-bottom:12px}
+.rv-pk-open{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 12px;border:1px solid var(--border-color);border-left:3px solid var(--success-color);border-radius:var(--radius-md);background:var(--surface-1);color:var(--text-primary);text-decoration:none}
+.rv-pk-open:hover{border-color:var(--success-color)}
+.rv-pk-tag{flex:0 0 auto;padding:2px 6px;border-radius:var(--radius-sm);background:var(--success-color);color:#fff;font-size:.68rem;font-weight:800}
+.rv-pk-open .rv-logo{flex:0 0 auto}
+.rv-pk-text{display:grid;min-width:0;flex:1}
+.rv-pk-text b,.rv-pk-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-pk-text small{color:var(--text-secondary);font-size:.74rem}
+.rv-pk-go{flex:0 0 auto;color:var(--success-color);font-size:.8rem;font-weight:800}
+
+/* 详情页视图 */
+.pk-root{display:grid;gap:12px;min-width:0}
+.pk-intro p{margin:0;color:var(--text-secondary);font-size:.82rem;line-height:1.6}
+.pk-stage{display:grid;gap:10px;min-width:0;padding:14px 16px;border:1px solid var(--border-color);border-radius:var(--radius-lg);background:var(--surface-1)}
+.pk-stage-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px}
+.pk-stage-title{min-width:0}
+.pk-stage-title h3{margin:0;font-size:1rem;color:var(--text-heading)}
+.pk-stage-title p{margin:2px 0 0;color:var(--text-secondary);font-size:.76rem}
+.pk-stage-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;color:var(--text-secondary);font-size:.78rem}
+.pk-pill{padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:800}
+.pk-pill.open{background:var(--correct-bg);color:var(--success-color)}
+.pk-pill.locked{background:var(--surface-5);color:var(--text-secondary)}
+.pk-myscore b{font-size:1.15rem;color:var(--primary-color);font-variant-numeric:tabular-nums}
+.pk-myscore small{margin-left:2px;color:var(--text-secondary)}
+.pk-outcome{margin:0;padding:6px 10px;border-radius:var(--radius-md);background:var(--surface-3);font-size:.8rem;color:var(--text-secondary)}
+.pk-outcome b{color:var(--text-primary)}
+
+.pk-slots{display:grid;gap:6px}
+.pk-slot{display:grid;grid-template-columns:minmax(140px,190px) minmax(0,1fr);align-items:center;gap:4px 12px;width:100%;padding:8px 10px;border:1px solid var(--border-soft);border-left:3px solid var(--border-strong);border-radius:var(--radius-md);background:var(--surface-3);box-shadow:none;color:var(--text-primary);text-align:left;font:inherit;transform:none}
+button.pk-slot{cursor:pointer}
+button.pk-slot:hover{border-color:var(--primary-color);transform:none}
+.pk-slot.active{border-color:var(--primary-color);background:var(--pick-bg);outline:1px solid var(--primary-color)}
+.pk-slot.advance{border-left-color:var(--success-color)}
+.pk-slot.eliminate{border-left-color:var(--danger-color)}
+.pk-slot.gold{border-left-color:var(--warning-color)}
+.pk-slot.silver{border-left-color:var(--secondary-color)}
+.pk-slot-label{display:grid;min-width:0}
+.pk-slot-label b{font-size:.86rem}
+.pk-slot-label small{color:var(--text-secondary);font-size:.7rem;font-weight:600}
+.pk-slot-teams{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.pk-popular{grid-column:2;margin:0;color:var(--text-secondary);font-size:.72rem}
+.pk-popular b{color:var(--text-primary)}
+
+.pk-chip{display:inline-flex;align-items:center;gap:5px;max-width:150px;padding:3px 8px 3px 4px;border:1px solid var(--border-soft);border-radius:999px;background:var(--surface-input);font-size:.76rem}
+.pk-chip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-chip.empty{padding:3px 10px;border-style:dashed;color:var(--text-secondary);font-weight:600;background:transparent}
+.pk-none{color:var(--text-secondary);font-size:.76rem}
+.pk-chip.correct{border-color:var(--success-color);background:var(--correct-bg)}
+.pk-chip.wrong{border-color:var(--danger-color);background:var(--wrong-bg)}
+.pk-chip.wrong b{text-decoration:line-through;opacity:.75}
+.pk-mark{font-style:normal;font-weight:900}
+.pk-chip.correct .pk-mark{color:var(--success-color)}
+.pk-chip.wrong .pk-mark{color:var(--danger-color)}
+
+.pk-logo{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:20px;height:20px}
+.pk-logo img{max-width:100%;max-height:100%;object-fit:contain}
+.pk-logo .placeholder{font-size:.45rem;color:var(--text-secondary)}
+
+.pk-hint,.pk-note{margin:0;color:var(--text-secondary);font-size:.76rem}
+.pk-note{font-size:.7rem}
+
+.pk-team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.pk-team{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-input);box-shadow:none;color:var(--text-primary);text-align:left;font:inherit;transform:none}
+button.pk-team{cursor:pointer}
+button.pk-team:hover{border-color:var(--primary-color);transform:none}
+.pk-team .pk-logo{width:24px;height:24px}
+.pk-team-name{display:grid;min-width:0;flex:1}
+.pk-team-name b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem}
+.pk-team-name em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-size:.66rem;color:var(--text-secondary)}
+.pk-team.picked{background:var(--surface-3)}
+.pk-team.picked.advance{border-color:var(--success-color)}
+.pk-team.picked.eliminate{border-color:var(--danger-color)}
+.pk-team.picked.gold{border-color:var(--warning-color)}
+.pk-team.in-active{outline:1px solid var(--primary-color)}
+.pk-team.is-eliminated{opacity:.6}
+.pk-record{flex:0 0 auto;padding:1px 5px;border-radius:var(--radius-sm);background:var(--surface-5);color:var(--text-secondary);font-size:.7rem;font-weight:800;font-variant-numeric:tabular-nums}
+.pk-record.advanced{background:var(--correct-bg);color:var(--success-color)}
+.pk-record.eliminated{background:var(--wrong-bg);color:var(--danger-color)}
+
+.pk-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.pk-actions button{min-width:96px}
+
+.pk-board{padding:14px 16px;border:1px solid var(--border-color);border-radius:var(--radius-lg);background:var(--surface-1)}
+.pk-board h3{margin:0 0 8px;font-size:1rem;color:var(--text-heading)}
+.pk-board ol{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.pk-board li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:6px 8px;border-radius:var(--radius-md);background:var(--surface-3);font-size:.84rem}
+.pk-board li.me{outline:1px solid var(--primary-color)}
+.pk-board strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-board small{color:var(--text-secondary);font-size:.72rem}
+.pk-board b{font-variant-numeric:tabular-nums}
+.pk-rank{text-align:center;font-weight:900;color:var(--text-secondary)}
+.pk-rank.top1{color:var(--warning-color)}
+.pk-rank.top2{color:var(--secondary-color)}
+.pk-rank.top3{color:#b0743c}
+
+/* 硬币：铜 / 银 / 金 / 钻石（纯 CSS，金属渐变 + 内圈） */
+.pk-coin{position:relative;display:inline-grid;place-items:center;flex:0 0 auto;width:22px;height:22px;border-radius:50%;vertical-align:middle;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25),0 1px 2px rgba(0,0,0,.25)}
+.pk-coin i{width:64%;height:64%;border-radius:50%;border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 1px rgba(0,0,0,.2)}
+.pk-coin.bronze{background:radial-gradient(circle at 32% 28%,#f2c08f,#b06a35 55%,#7a4320)}
+.pk-coin.silver{background:radial-gradient(circle at 32% 28%,#ffffff,#b9c3cc 55%,#7d8893)}
+.pk-coin.gold{background:radial-gradient(circle at 32% 28%,#fff3b0,#e2b33c 55%,#a37516)}
+.pk-coin.diamond{background:radial-gradient(circle at 32% 28%,#e8fdff,#6fd6ef 50%,#2a8fb8)}
+.pk-coin.diamond i::after{content:"◆";display:grid;place-items:center;height:100%;color:#fff;font-size:.5em;font-style:normal;line-height:1;text-shadow:0 0 3px rgba(20,110,150,.8)}
+.pk-coin.xs{width:14px;height:14px;margin:0 3px 0 1px}
+.pk-coin.lg{width:44px;height:44px}
+.pk-coin.lg.diamond i::after{font-size:1rem}
+
+.pk-coin-panel{display:grid;gap:10px;padding:12px 16px;border:1px solid var(--border-color);border-radius:var(--radius-lg);background:var(--surface-1)}
+.pk-coin-head{display:flex;align-items:center;gap:12px}
+.pk-coin-head div{display:grid;min-width:0}
+.pk-coin-head b{font-size:1rem;color:var(--text-heading)}
+.pk-coin-head small{color:var(--text-secondary);font-size:.78rem}
+.pk-coin-head small b{font-size:inherit;color:var(--primary-color)}
+.pk-coin-bar{position:relative;height:8px;margin:4px 0 18px;border-radius:999px;background:var(--surface-4)}
+.pk-coin-bar>i{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:linear-gradient(90deg,#b06a35,#e2b33c 60%,#6fd6ef)}
+.pk-coin-tick{position:absolute;top:50%;display:grid;justify-items:center;transform:translate(-50%,-7px)}
+.pk-coin-tick .pk-coin{margin:0}
+.pk-coin-tick small{margin-top:1px;color:var(--text-secondary);font-size:.64rem;font-weight:700;font-variant-numeric:tabular-nums}
+.pk-coin-legend{margin:0;color:var(--text-secondary);font-size:.74rem;line-height:1.7}
+.pk-coin-legend .pk-coin-note{display:block;font-size:.68rem;opacity:.8}
+.pk-board strong .pk-coin{margin-right:6px}
+
+/* ---------- 移动端：名额条吸顶、队伍三列大按钮、保存栏吸底 ---------- */
+@media(max-width:760px){
+  .pk-root{gap:10px}
+  .pk-intro p{font-size:.76rem}
+  .pk-stage{gap:8px;padding:12px 10px}
+  .pk-stage-head{gap:6px}
+  .pk-stage-meta{width:100%;justify-content:space-between}
+  .pk-coin-panel{padding:12px}
+
+  .pk-slots{gap:4px}
+  .pk-slots.editing{position:sticky;top:0;z-index:6;margin:0 -10px;padding:6px 10px;background:var(--surface-1);box-shadow:0 6px 10px -8px rgba(0,0,0,.45)}
+  .pk-slot{grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:6px 8px}
+  .pk-slot-label{grid-column:1}
+  .pk-slot-label b{font-size:.8rem}
+  .pk-slot-label small{font-size:.66rem}
+  .pk-slot-teams{grid-column:1 / -1;gap:4px}
+  .pk-popular{grid-column:1 / -1;font-size:.68rem}
+  /* 名额里的已选队只保留队标 + 简称，缩小占位 */
+  .pk-chip{max-width:92px;padding:2px 6px 2px 3px;font-size:.7rem}
+  .pk-chip .pk-logo{width:16px;height:16px}
+  .pk-chip.empty{padding:2px 8px}
+  .pk-slots.editing .pk-slot:not(.active) .pk-chip b{display:none}
+  .pk-slots.editing .pk-slot:not(.active) .pk-chip{padding:2px}
+  .pk-slots.editing .pk-slot:not(.active) .pk-chip.empty{padding:2px 6px}
+  .pk-slots.editing .pk-slot:not(.active) .pk-popular{display:none}
+  /* 非当前名额压成一行：名额名在左，已选队标在右 */
+  .pk-slots.editing .pk-slot:not(.active){grid-template-columns:auto minmax(0,1fr);align-items:center;padding:4px 8px}
+  .pk-slots.editing .pk-slot:not(.active) .pk-slot-label small{display:none}
+  .pk-slots.editing .pk-slot:not(.active) .pk-slot-teams{grid-column:2;justify-content:flex-end;flex-wrap:nowrap;overflow:hidden}
+  .pk-slots.editing .pk-slot:not(.active) .pk-chip.empty{font-size:0;width:20px;height:20px;padding:0}
+
+  .pk-team-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .pk-team{flex-direction:column;justify-content:center;gap:3px;min-height:68px;padding:6px 4px;text-align:center}
+  .pk-team .pk-logo{width:28px;height:28px}
+  .pk-team-name{justify-items:center;flex:0 0 auto;width:100%}
+  .pk-team-name b{font-size:.74rem;max-width:100%}
+  .pk-team-name em{font-size:.6rem;max-width:100%}
+  .pk-record{position:absolute;top:3px;right:3px;padding:0 3px;font-size:.6rem}
+  .pk-team{position:relative}
+
+  .pk-actions{margin:0 -10px -12px;padding:8px 10px;border-top:1px solid var(--border-soft);background:var(--surface-1)}
+  .pk-actions.dirty{position:sticky;bottom:0;z-index:6;box-shadow:0 -6px 10px -8px rgba(0,0,0,.45)}
+  .pk-actions button{flex:1;min-width:0;min-height:40px}
+
+  .pk-board{padding:12px 10px}
+  .pk-board li{grid-template-columns:24px minmax(0,1fr) auto}
+  .pk-board li small{display:none}
+
+  .rv-pk-open-list{grid-template-columns:1fr;gap:6px}
+  .rv-pk-open{padding:8px 10px}
+}
+@media(max-width:360px){
+  .pk-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
