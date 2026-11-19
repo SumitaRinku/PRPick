@@ -115,6 +115,9 @@ function looksLikeSwissStage(matches, label = '') {
     if (isNamedGroupStage(text)) return false;
     if (/swiss/i.test(text) || /瑞士/i.test(text)) return rounds.size >= 2;
     if (/group\s*stage|opening\s*stage|^groups?$/i.test(text.trim())) return rounds.size >= 2;
+    // Major 的「Stage 1 / Stage 2 / Stage 3」：开赛前通常只公布前几轮且每轮场数相同，
+    // 不能靠下方「各轮场数不等」区分循环赛，按名称直接认定。
+    if (/^stage\s*\d+$/i.test(text.trim())) return rounds.size >= 2;
     if (rounds.size < 3) return false;
     const teams = new Set();
     for (const match of list) {
@@ -320,11 +323,19 @@ const SWISS_16_SKELETON = {
     ]
 };
 
-// 判断该赛事是否为标准 16 队瑞士轮：R1..R5 齐全且各轮对阵数匹配 8/8/8/6/3。
+// 判断该赛事是否为标准 16 队瑞士轮：首轮 8 场，已公布的各轮都不超过标准场数 8/8/8/6/3。
+// 开赛前 PandaScore 往往只公布前几轮（如 Major Stage 1 只有 R1–R3），缺的轮次由骨架补齐。
 function detectSwiss16(roundGroups) {
     const byRound = new Map(roundGroups.map(g => [g.round || Number((String(g.label || '').match(/\d+/) || [0])[0]), g]));
     const expected = { 1: 8, 2: 8, 3: 8, 4: 6, 5: 3 };
-    return Object.entries(expected).every(([r, n]) => (byRound.get(Number(r)) || { matches: [] }).matches.length === n);
+    if ((byRound.get(1)?.matches || []).length !== 8) return false;
+    return [...byRound.entries()].every(([round, group]) => expected[round] && group.matches.length <= expected[round]);
+}
+
+// 骨架模式下补齐尚未公布的轮次（空列，后续由 swissRoundBuckets 填入「?」占位）。
+function padSwiss16Rounds(roundGroups) {
+    const byRound = new Map(roundGroups.map(g => [g.round || Number((String(g.label || '').match(/\d+/) || [0])[0]), g]));
+    return [1, 2, 3, 4, 5].map(round => byRound.get(round) || { key: `swiss-pad-${round}`, label: `Round ${round}`, round, matches: [] });
 }
 
 // 合成 TBD 占位对阵，用于骨架中尚未产生的槽位。
@@ -553,6 +564,7 @@ function swissDiagram(roundGroups) {
     // 标准 16 队瑞士轮：画完整骨架（HLTV 风格）——未来轮次/未定对阵用「?」盾牌补齐，
     // 右侧晋级/淘汰框始终展示，即使尚无队伍进出线。
     const skeleton = detectSwiss16(roundGroups);
+    if (skeleton) roundGroups = padSwiss16Rounds(roundGroups);
     const groupedRounds = swissRoundBuckets(roundGroups, skeleton);
     const finalBuckets = swissFinalBuckets(roundGroups, skeleton);
     // 非骨架赛事沿用「只显示已有对阵」：整轮无桶且无结果区的列跳过，避免空列。

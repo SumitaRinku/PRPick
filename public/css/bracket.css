@@ -198,6 +198,25 @@
 .bracket-swiss .sw2-buckets { justify-content:center!important; }
 .bracket-swiss .sw2-match-list { gap:4px; }
 .bracket-swiss .sw2-vs { display:block!important; }
+/* 瑞士轮大图：任何宽度都只显示队标（队名放在 title / aria-label 里），宽屏放大队标。 */
+.bracket-swiss .swiss-bracket-clean .sw2-side b,.bracket-swiss .swiss-bracket-clean .sw2-result-team b { display:none!important; }
+.bracket-swiss .swiss-bracket-clean .sw2-result-team { grid-template-columns:1fr!important;justify-items:center!important;padding:0!important; }
+/* 兜底：没有队标或加载失败（占位块）时改为显示队伍简称，避免只剩空白圆圈认不出队伍 */
+.bracket-swiss .swiss-bracket-clean .sw2-side:has(.placeholder) .placeholder,
+.bracket-swiss .swiss-bracket-clean .sw2-result-team:has(.placeholder) .placeholder { display:none!important; }
+.bracket-swiss .swiss-bracket-clean .sw2-side:has(.placeholder) .sw2-logo { display:none!important; }
+.bracket-swiss .swiss-bracket-clean .sw2-side:has(.placeholder) b,
+.bracket-swiss .swiss-bracket-clean .sw2-result-team:has(.placeholder) b { display:block!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px!important;font-weight:800; }
+.bracket-swiss .sw2-match { grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr)!important; }
+@container swiss (min-width:801px) {
+    .bracket-swiss .sw2-match { height:42px!important; }
+    .bracket-swiss .sw2-logo { width:28px!important;height:28px!important;flex-basis:28px!important; }
+    .bracket-swiss .sw2-logo img,.bracket-swiss .sw2-logo .placeholder,.bracket-swiss .sw2-logo .tbd-shield { width:26px!important;height:26px!important;object-fit:contain; }
+    .bracket-swiss .sw2-vs { font-size:12px!important; }
+    .bracket-swiss .swiss-bracket-clean .sw2-result-team { height:30px!important;min-height:30px!important; }
+    .bracket-swiss .swiss-bracket-clean .sw2-result-team img,.bracket-swiss .swiss-bracket-clean .sw2-result-team .placeholder,.bracket-swiss .swiss-bracket-clean .sw2-result-team .tbd-shield { width:24px!important;height:24px!important; }
+    .bracket-swiss .swiss-bracket-clean .sw2-result-teams { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+}
 @container swiss (max-width:800px) {
     .bracket-swiss .sw2-side b,.bracket-swiss .sw2-result-team b { display:none!important; }
     .bracket-swiss .sw2-match { height:36px!important;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr)!important;padding:0 3px!important;gap:1px!important; }
