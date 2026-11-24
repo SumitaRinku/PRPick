@@ -189,7 +189,7 @@ router.put('/users/:id/role', (req, res) => {
 
 router.put('/users/:id/password', (req, res) => {
     const { password } = req.body;
-    if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+    if (!password || password.length < 6) return res.status(400).json({ error: '密码至少 6 位' });
     const result = db.prepare('UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?').run(bcrypt.hashSync(password, 10), req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: '用户不存在' });
     res.json({ message: '密码已重置' });
@@ -265,7 +265,7 @@ router.delete('/tournaments/:id/logo', (req, res) => {
     if (!tournament) return res.status(404).json({ error: '赛事不存在' });
     removeTournamentLogoFile(tournament.logo_url);
     db.prepare('UPDATE tournaments SET logo_url = NULL WHERE id = ?').run(tournament.id);
-    res.json({ message: '已清除手动 logo，回退到名称匹配的默认 logo' });
+    res.json({ message: 'Logo 已恢复默认' });
 });
 
 router.put('/tournaments/:id', (req, res) => {
@@ -379,7 +379,7 @@ router.post('/matches', (req, res) => {
         res.status(201).json({ id: result.lastInsertRowid });
     } catch (error) {
         console.error('[admin] create match failed', error);
-        res.status(400).json({ error: '??????????????????' });
+        res.status(400).json({ error: '创建比赛失败，请检查参数' });
     }
 });
 
@@ -391,7 +391,7 @@ router.put('/matches/:id', (req, res) => {
     if (!existing) return res.status(404).json({ error: '比赛不存在' });
 
     const inputError = validateMatchInput({ tournament_id: tournament_id || existing.tournament_id, team1_id: team1_id || existing.team1_id, team2_id: team2_id || existing.team2_id, format, status, match_time });
-    if (inputError && inputError !== '??????') return res.status(400).json({ error: inputError });
+    if (inputError && inputError !== '缺少必填字段') return res.status(400).json({ error: inputError });
     const referenceError = validateMatchReferences(db, {
         tournament_id: tournament_id === undefined ? existing.tournament_id : tournament_id,
         team1_id: team1_id === undefined ? existing.team1_id : team1_id,
@@ -411,7 +411,7 @@ router.put('/matches/:id', (req, res) => {
     // 结束比赛必须有完整赛果；使用专用的 /result 接口录入比分后才允许结算。
     const nextStatus = status || existing.status;
     if (nextStatus === 'finished' && (existing.team1_score === null || existing.team2_score === null || existing.winner_team_id === null)) {
-        return res.status(400).json({ error: '请先使用录赛果功能填写比分，不能直接将无赛果比赛标记为已结束' });
+        return res.status(400).json({ error: '请先录入比分，再标记为已结束' });
     }
 
     const update = db.transaction(() => {

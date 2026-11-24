@@ -26,9 +26,7 @@
             <div id="userPanel"></div>
         </nav>
         <section>
-            <p class="eyebrow">Leaderboard</p>
             <h1>竞猜排行榜</h1>
-            <p>按游戏或赛事查看积分排名，点击玩家回看预测。</p>
         </section>
     </header>
 
@@ -37,7 +35,7 @@
             <label for="gameFilter">游戏
             <select id="gameFilter" onchange="setGame(this.value)" data-game-switch data-all-label="全部游戏"></select>
             </label>
-            <label for="tournamentFilter">统计范围
+            <label for="tournamentFilter">赛事范围
             <select id="tournamentFilter" onchange="resetLeaderboard()">
                 <option value="">总排行榜</option>
             </select>
@@ -54,7 +52,7 @@
             <ol id="leaderboardFull" class="board-list" aria-label="积分排名" aria-busy="true"></ol>
             <div id="pagination" class="pagination"></div>
         </section>
-        <details class="board-rules"><summary>计分与排名规则</summary><p>胜负预测正确得 1 分；比分完全正确时，BO1 得 1 分、BO3 得 2 分、BO5 得 3 分。弃权场次不计分。积分相同时，依次按得分率、已结算场次排序。</p><p>得分率 = 得分场次 ÷ 已结算场次。总榜统计所选游戏下的有效赛事，点击玩家可查看已结算预测。</p></details>
+        <details class="board-rules"><summary>计分规则</summary><p>猜中胜负得 1 分；猜中比分时 BO1 得 1 分、BO3 得 2 分、BO5 得 3 分；弃权不计分。</p><p>同分按得分率（得分场次 ÷ 已结算场次）、已结算场次依次排序。</p></details>
     </main>
 
     <div id="detailModal" class="modal leaderboard-detail-modal" hidden>

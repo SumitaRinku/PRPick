@@ -138,7 +138,7 @@ function matchCenterHtml(match) {
         ${maps ? `<section class="mc-section"><h3>${roundless ? '对局' : '地图'}</h3><div class="${roundless ? 'mc-games' : 'mc-maps'}">${maps}</div></section>` : ''}
         ${veto ? `<section class="mc-section"><h3>BP 流程</h3><ol class="mc-veto">${veto}</ol></section>` : ''}
         ${live.has_stats ? `<section class="mc-section"><h3>${roundless ? '每局数据' : '每图数据'}</h3><div class="gs-host" data-mc-stats><div class="rv-md-loading">加载中…</div></div></section>` : ''}
-        <p class="mc-source">${roundless ? `每${unit}比分为击杀数，` : ''}${roundless ? '对局' : '地图'}与 BP 数据来自 GRID Open Access，仅供展示，结算以官方赛果为准。</p>
+        <p class="mc-source">${roundless ? '每局比分为击杀数 · ' : ''}数据来源：GRID</p>
     </div>`;
 }
 

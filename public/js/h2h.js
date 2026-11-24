@@ -28,7 +28,7 @@
     }
 
     function recentRows(items) {
-        if (!items.length) return '<p class="hh-empty">该队赛前暂无已结算比赛</p>';
+        if (!items.length) return '<p class="hh-empty">暂无近期战绩</p>';
         return `<ol class="hh-list">${items.map(item => {
             const win = item.result === 'W';
             return `<li class="hh-row ${win ? 'is-win' : 'is-loss'}">
@@ -44,7 +44,7 @@
     }
 
     function meetingRows(list, m) {
-        if (!list.length) return '<p class="hh-empty">两队赛前暂无交手记录</p>';
+        if (!list.length) return '<p class="hh-empty">暂无交手记录</p>';
         return `<ol class="hh-list">${list.map(h => {
             const t1Won = h.winner === 'team1';
             const t2Won = h.winner === 'team2';
@@ -97,7 +97,7 @@
             <section class="hh-panel" data-pane="${side}">
                 <header class="hh-panel-head">
                     <a href="/teams.html?team=${m[`${side}_id`]}">${h2hLogo(m[`${side}_logo_url`], m[`${side}_dark_logo_url`])}<b>${esc(m[`${side}_name`])}</b></a>
-                    <span>近 ${total} 场 <b>${team.wins}胜 ${team.losses}负</b> 胜率 ${rate}%</span>
+                    <span>${total ? `近 ${total} 场 <b>${team.wins}胜 ${team.losses}负</b> · ${rate}%` : '暂无战绩'}</span>
                 </header>
                 ${recentRows(team.recent)}
             </section>`;
@@ -126,7 +126,7 @@
             </div>
             <div class="hh-body">
                 <section class="hh-panel hh-meets" data-pane="meet">
-                    <header class="hh-panel-head"><b>交手记录</b><span>开赛前最近 ${meets.length} 场</span></header>
+                    <header class="hh-panel-head"><b>交手记录</b>${meets.length ? `<span>近 ${meets.length} 场</span>` : ''}</header>
                     ${meetingRows(meets, m)}
                 </section>
                 <div class="hh-forms">

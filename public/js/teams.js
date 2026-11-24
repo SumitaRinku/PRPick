@@ -98,7 +98,7 @@ function teamCard(team) {
             <span class="th-rate" title="胜率 ${rate}%"><i style="width:${rate}%"></i></span>
             <span class="th-card-foot">
                 <span class="th-record"><b>${wins}</b>胜<b class="loss">${played - wins}</b>负</span>
-                <span class="th-card-meta">${upcoming ? `<em class="th-upcoming">${upcoming} 场待赛</em>` : '<em>近期无赛程</em>'}</span>
+                <span class="th-card-meta">${upcoming ? `<em class="th-upcoming">${upcoming} 场待赛</em>` : '<em>暂无赛程</em>'}</span>
             </span>
         </span>
         <span class="game-pill ${team.game_type}">${teamGameName(team.game_type)}</span>
@@ -230,7 +230,7 @@ async function loadTeams() {
     const requestId = ++teamState.requestId;
     syncGameSeg();
     teamsGrid.classList.remove('th-enter');
-    teamsGrid.innerHTML = '<div class="th-loading">加载队伍中...</div>';
+    teamsGrid.innerHTML = '<div class="th-loading">加载中…</div>';
     if (teamCount) teamCount.textContent = '';
     const params = new URLSearchParams();
     if (teamState.game) params.set('game_type', teamState.game);
@@ -244,7 +244,7 @@ async function loadTeams() {
         if (teamCount) teamCount.textContent = `${teams.length} 支队伍`;
         teamsGrid.innerHTML = teams.length
             ? teams.map(teamCard).join('')
-            : '<div class="th-empty th-empty-lg"><h3>未找到队伍</h3><p>试试调整游戏、范围或搜索关键词。</p></div>';
+            : '<div class="th-empty th-empty-lg"><h3>未找到队伍</h3><p>换个条件或关键词试试</p></div>';
         stagggerCards();
         requestAnimationFrame(() => {
             if (requestId === teamState.requestId) teamsGrid.classList.add('th-enter');
@@ -260,10 +260,10 @@ async function openTeamDetail(id) {
     updateTeamUrl(teamState.activeId);
     teamListView.hidden = true;
     teamDetailView.hidden = false;
-    teamDetailView.innerHTML = '<div class="th-loading">加载队伍详情...</div>';
+    teamDetailView.innerHTML = '<div class="th-loading">加载中…</div>';
     try {
         const data = await sharedApi(`/teams/${encodeURIComponent(id)}`);
-        if (!data || !data.team) throw new Error('队伍数据暂时不可用，请稍后重试');
+        if (!data || !data.team) throw new Error('暂无法获取队伍信息');
         teamDetailView.innerHTML = teamDetail(data);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {

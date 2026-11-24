@@ -167,7 +167,7 @@ function renderMatchPredictionDetail(match, predictions) {
             ${teamBlock('team2', t2Win)}
         </div>
         <p class="pd-meta"><span class="meta-part">${escapeSharedHtml(match.tournament_name || '')}</span><span class="meta-part">${escapeSharedHtml(match.name || '常规赛程')}</span><span class="meta-part">${formatDateTime(match.match_time)}</span></p>
-        ${match.is_forfeit ? '<p class="pd-forfeit">本场因弃权按 1-0 判定，所有预测均不计入积分。</p>' : ''}
+        ${match.is_forfeit ? '<p class="pd-forfeit">本场弃权，按 1-0 判定且不计分。</p>' : ''}
         <div class="pd-stats">
             <span><b>${list.length}</b><small>人参与</small></span>
             <span><b>${hitCount}</b><small>命中</small></span>

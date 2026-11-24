@@ -259,7 +259,6 @@ async function fetchJson(pathname, params) {
     };
 
     // 失败重试一次：PandaScore 偶发 400/500（瞬时故障），重试可吸收大部分抖动
-    // ????????? 429/5xx ???????4xx ?????????
     let response;
     let lastError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -279,7 +278,7 @@ async function fetchJson(pathname, params) {
     if (lastError && !response) throw lastError;
     if (!response || !response.ok) {
         const body = response ? await response.text() : '';
-        throw new Error('PandaScore ???? ' + (response ? response.status : '') + ': ' + body.slice(0, 400));
+        throw new Error('PandaScore 请求失败 ' + (response ? response.status : '') + ': ' + body.slice(0, 400));
     }
 
     return response.json();

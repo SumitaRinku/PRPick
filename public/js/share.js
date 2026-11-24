@@ -40,10 +40,10 @@
         exact: { color: C.green, title: '完美命中', sub: '比分全中' },
         winner: { color: C.blue, title: '猜中胜者', sub: '胜者正确' },
         miss: { color: C.red, title: '未命中', sub: '下次再战' },
-        forfeit: { color: C.amber, title: '弃权', sub: '本场不计分' },
-        upcoming: { color: C.brandSoft, title: '等待开赛', sub: '预测已锁定' },
-        live: { color: C.red, title: '比赛进行中', sub: '静候结果' },
-        settling: { color: C.amber, title: '等待结算', sub: '比赛已结束' }
+        forfeit: { color: C.amber, title: '弃权', sub: '不计分' },
+        upcoming: { color: C.brandSoft, title: '等待开赛', sub: '已提交' },
+        live: { color: C.red, title: '进行中', sub: '等待赛果' },
+        settling: { color: C.amber, title: '待结算', sub: '等待出分' }
     };
 
     let fontsReady = false;
@@ -562,7 +562,7 @@
 
         const mid = top + (H - top) / 2;
         text(ctx, '扫码一起来猜', PAD, mid - 30, { weight: 700, size: 44, color: C.text });
-        text(ctx, `CS2 / Valorant / LoL 免费赛事竞猜，访问 ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
+        text(ctx, `CS2 / Valorant / LoL 赛事竞猜 · ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
     }
 
     // ---------- 组装 ----------
@@ -688,7 +688,7 @@
                         <button type="button" class="button ghost" id="shareCopy" hidden>复制图片</button>
                         <button type="button" class="button ghost" id="shareNative" hidden>分享到…</button>
                     </div>
-                    <p class="share-hint" data-default="移动端可长按图片保存，或下载后分享到社交平台">移动端可长按图片保存，或下载后分享到社交平台</p>
+                    <p class="share-hint" data-default="长按或点击保存图片">长按或点击保存图片</p>
                 </div>
             </section>`;
         document.body.appendChild(modal);
@@ -707,9 +707,9 @@
             if (!currentBlob) return;
             try {
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': currentBlob })]);
-                flash(modal, '已复制到剪贴板，可直接粘贴到聊天窗口');
+                flash(modal, '已复制，可直接粘贴');
             } catch (e) {
-                flash(modal, '复制失败，请改用保存图片');
+                flash(modal, '复制失败，请保存图片');
             }
         });
         modal.querySelector('#shareNative').addEventListener('click', async () => {

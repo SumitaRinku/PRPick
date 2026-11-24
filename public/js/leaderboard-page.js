@@ -85,7 +85,7 @@ async function loadLeaderboard() {
         : await sharedApi(`/leaderboard?${params}`);
     if (request !== state.request) return;
     if (boardTitleEl) boardTitleEl.textContent = tournamentId ? `${data.tournament.name} 排行榜` : `${gameName(state.game)} 总排行榜`;
-    leaderboardFullEl.innerHTML = data.leaderboard.map(row).join('') || '<li class="empty-state"><h3>暂无排行</h3><p>用户完成预测并结算后会出现在这里。</p></li>';
+    leaderboardFullEl.innerHTML = data.leaderboard.map(row).join('') || '<li class="empty-state"><h3>暂无排行</h3><p>暂无已结算的预测记录</p></li>';
     leaderboardFullEl.setAttribute('aria-busy', 'false');
     document.querySelector('#boardCount').textContent = `共 ${data.total || 0} 位玩家`;
     renderPodium(data);
@@ -130,7 +130,7 @@ function showLeaderboardError(error) {
     if (leaderboardFullEl) leaderboardFullEl.innerHTML = `<li class="empty-state"><h3>加载失败</h3><p>${escapeHtml(error.message)}</p></li>`;
     leaderboardFullEl?.setAttribute('aria-busy', 'false');
     document.querySelector('#boardPodium').hidden = true;
-    document.querySelector('#boardCount').textContent = '暂时无法加载';
+    document.querySelector('#boardCount').textContent = '加载失败';
     document.querySelector('#pagination').innerHTML = '';
 }
 

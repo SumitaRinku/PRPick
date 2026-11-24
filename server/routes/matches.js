@@ -110,7 +110,7 @@ router.get('/', optionalAuth, (req, res) => {
         meta: {
             syncedAt: syncedAt?.toISOString() || null,
             isStale,
-            warning: isStale ? '比赛数据距离现在已超过1小时，请刷新页面重新同步' : null
+            warning: isStale ? '赛程数据已超过 1 小时未更新，请稍后刷新' : null
         }
     });
 });
@@ -218,7 +218,7 @@ router.get('/:id/details', (req, res) => {
 router.get('/:id/predictions', (req, res) => {
     const match = db.prepare(matchSelect('m.id = ? AND tour.is_active = 1')).get(req.params.id);
     if (!match) return res.status(404).json({ error: '比赛不存在' });
-    if (match.status !== 'finished') return res.status(400).json({ error: '只有已结算比赛可以查看预测详情' });
+    if (match.status !== 'finished') return res.status(400).json({ error: '比赛结算后可查看预测详情' });
 
     const predictions = db.prepare(`
         SELECT p.id, p.user_id, p.predicted_team1_score, p.predicted_team2_score, p.predicted_winner_id, p.points_earned, p.created_at,
@@ -238,7 +238,7 @@ router.post('/:id/predictions', authenticateToken, (req, res) => {
     const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(req.params.id);
     if (!match) return res.status(404).json({ error: '比赛不存在' });
     if (isTbdMatch(match)) return res.status(400).json({ error: '对阵未确定，暂不可预测' });
-    if (match.status !== 'upcoming' || !match.betting_enabled) return res.status(400).json({ error: '该比赛当前不可预测' });
+    if (match.status !== 'upcoming' || !match.betting_enabled) return res.status(400).json({ error: '本场暂未开放预测' });
     if (new Date(match.match_time) <= new Date()) return res.status(400).json({ error: '比赛已开始，无法预测' });
 
     const winnerId = Number(req.body.predicted_winner_id);
@@ -254,7 +254,7 @@ router.post('/:id/predictions', authenticateToken, (req, res) => {
         db.prepare('UPDATE predictions SET predicted_winner_id = ?, predicted_team1_score = ?, predicted_team2_score = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
             .run(winnerId, s1, s2, existing.id);
         recordPredictionHistory(db, { ...existing, predicted_winner_id: winnerId, predicted_team1_score: s1, predicted_team2_score: s2 }, 'updated');
-        return res.json({ message: '?????' });
+        return res.json({ message: '预测已更新' });
     }
 
     const result = db.prepare('INSERT INTO predictions (user_id, match_id, predicted_winner_id, predicted_team1_score, predicted_team2_score) VALUES (?, ?, ?, ?, ?)')
@@ -267,12 +267,12 @@ router.post('/:id/predictions', authenticateToken, (req, res) => {
 router.delete('/:id/predictions', authenticateToken, (req, res) => {
     const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(req.params.id);
     if (!match) return res.status(404).json({ error: '比赛不存在' });
-    if (match.status !== 'upcoming') return res.status(400).json({ error: '比赛已开始或已结束，无法取消预测' });
+    if (match.status !== 'upcoming') return res.status(400).json({ error: '已开赛，无法取消预测' });
     if (new Date(match.match_time) <= new Date()) return res.status(400).json({ error: '比赛已开始，无法取消预测' });
     const prediction = db.prepare('SELECT * FROM predictions WHERE user_id = ? AND match_id = ?').get(req.user.id, match.id);
     const result = db.prepare('DELETE FROM predictions WHERE user_id = ? AND match_id = ?').run(req.user.id, match.id);
     if (prediction) recordPredictionHistory(db, prediction, 'deleted');
-    if (result.changes === 0) return res.status(404).json({ error: '你尚未对该比赛做出预测' });
+    if (result.changes === 0) return res.status(404).json({ error: '你还没预测这场比赛' });
     res.json({ message: '预测已取消' });
 });
 

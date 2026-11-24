@@ -313,7 +313,7 @@
         }
         const mid = top + (H - top) / 2;
         text(ctx, '扫码来抄我的作业', PAD, mid - 30, { weight: 700, size: 44, color: C.text });
-        text(ctx, `免费电竞 Pick'em 竞猜，访问 ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
+        text(ctx, `PRPICK 赛事竞猜 · ${SITE_LABEL}`, PAD, mid + 30, { weight: 500, size: 26, color: C.textDim, maxWidth: qx - PAD - 40, minSize: 20 });
     }
 
     // ---------- 组装 ----------
@@ -353,7 +353,7 @@
         if (!window.PrpickShare) return;
         const data = typeof window.getPickemShareData === 'function' ? window.getPickemShareData() : null;
         if (!data?.stages.length) {
-            alert('还没有已提交的 Pick\'em 作业');
+            alert('请先提交至少一个阶段的 Pick\'em');
             return;
         }
         await window.PrpickShare.showCanvas(() => renderPickemSummary(data), {

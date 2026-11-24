@@ -26,16 +26,14 @@
             <div id="userPanel"></div>
         </nav>
         <section>
-            <p class="eyebrow">Profile</p>
             <h1>个人中心</h1>
-            <p>查看你的竞猜统计、历史预测、赛果和得分情况。</p>
         </section>
     </header>
 
     <main class="page-shell pc-page">
         <section id="loginRequired" class="pc-empty pc-login" hidden>
             <h3>请先登录</h3>
-            <p>在页面顶部登录后，可查看自己的全部预测记录与积分统计。</p>
+            <p>登录后查看预测记录与积分统计</p>
         </section>
 
         <section id="profileContent" class="pc-content" hidden>
@@ -62,7 +60,7 @@
 
             <section class="pc-settings" id="profileTabSettings" role="tabpanel" aria-labelledby="tabSettings" hidden>
                 <article class="pc-card">
-                    <header><h2>QQ 群竞猜绑定</h2><p>绑定后可在启用功能的群内提交或修改竞猜，赛后群内会展示你的竞猜结果。</p></header>
+                    <header><h2>QQ 群绑定</h2><p>绑定后可在群内直接竞猜，赛后同步播报成绩。</p></header>
                     <p id="botBindingFeedback" class="pc-status" role="status"></p>
                     <form id="botBindingForm" class="pc-form pc-form-inline">
                         <label class="pc-field">
@@ -77,7 +75,7 @@
                 </article>
 
                 <article class="pc-card">
-                    <header><h2>修改密码</h2><p>修改后当前页面自动换用新的登录凭据，其他设备需重新登录。</p></header>
+                    <header><h2>修改密码</h2><p>修改后其他设备需重新登录。</p></header>
                     <form id="passwordForm" class="pc-form" autocomplete="off">
                         <label class="pc-field">
                             <span>原密码</span>
@@ -103,8 +101,8 @@
                         <input type="checkbox" id="visibilityToggle" onchange="togglePredictionsPublic(this.checked)">
                         <span class="pc-switch-track" aria-hidden="true"></span>
                         <span class="pc-switch-text">
-                            <strong>在排行榜公开我的预测数据</strong>
-                            <small>关闭时排行榜不展示你的成绩；开启后与普通用户一同参与排名（含赛事榜和 CSV 导出）。</small>
+                            <strong>在排行榜显示我的成绩</strong>
+                            <small>开启后参与总榜与赛事榜排名，关闭则仅自己可见。</small>
                         </span>
                     </label>
                     <p id="visibilityFeedback" class="pc-feedback" role="status" hidden></p>

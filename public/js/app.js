@@ -142,7 +142,7 @@ function cardState(match, prediction) {
         className: 'match-forfeit',
         label: '弃权',
         phase: '对手弃权',
-        hint: '本场因弃权按 1-0 判定，已结算但不计入积分。'
+        hint: '本场弃权，不计分'
     };
     if (displayStatus === 'finished') return {
         className: 'match-finished',
@@ -247,7 +247,7 @@ function consensusHtml(match) {
     if (!c || c.total < 3 || match.display_status === 'finished' || match.status === 'finished') return '';
     const t1 = escapeHtml(match.team1_short_name || match.team1_name);
     const t2 = escapeHtml(match.team2_short_name || match.team2_name);
-    return `<div class="consensus" title="赛前社区预测分布（${c.total} 人）">
+    return `<div class="consensus" title="预测分布（${c.total} 人）">
         <span class="consensus-side">${t1} <b>${c.team1_pct}%</b></span>
         <div class="consensus-bar"><i style="width:${c.team1_pct}%"></i></div>
         <span class="consensus-side"><b>${c.team2_pct}%</b> ${t2}</span>
@@ -262,7 +262,7 @@ function liveCenterHtml(match) {
     const currentHtml = current
         ? `<span class="live-map" title="当前${gameUnitOf(match.game_type) === '局' ? '对局（击杀）' : '地图'}">${escapeHtml(gameSlotLabel(match.game_type, current))} ${current.team1_rounds ?? 0}-${current.team2_rounds ?? 0}</span>`
         : '';
-    return `<div class="match-score live-score" title="实时比分（GRID）"><span>${live.team1_score}</span><em>:</em><span>${live.team2_score}</span></div>${currentHtml}`;
+    return `<div class="match-score live-score" title="实时比分"><span>${live.team1_score}</span><em>:</em><span>${live.team2_score}</span></div>${currentHtml}`;
 }
 
 // 进行中卡片：当前地图已在比分下方的红色标签里，下方比分条只列已打完的地图，避免重复
@@ -300,7 +300,7 @@ function matchCard(match) {
         showCount ? `<span class="pick-count">${match.prediction_count || 0} 预测</span>` : '',
         prediction ? `<button class="link-btn share-trigger" onclick="event.stopPropagation(); sharePrediction(${match.id})" title="生成分享图">分享</button>` : '',
         canCancel ? `<button class="link-btn danger" onclick="event.stopPropagation(); cancelPrediction(${match.id})">取消预测</button>` : '',
-        isAdminStale ? `<button class="link-btn danger admin-forfeit-trigger" onclick="event.stopPropagation(); showForfeitEditor(${match.id})" title="开赛超过5小时仍未结算，可标记为弃权">标记弃权</button>` : '',
+        isAdminStale ? `<button class="link-btn danger admin-forfeit-trigger" onclick="event.stopPropagation(); showForfeitEditor(${match.id})" title="超时未结算，可标记弃权">标记弃权</button>` : '',
         `<button class="link-btn md-trigger" onclick="event.stopPropagation(); openMatchDetail(${match.id})" title="地图 / 预测 / 交锋">详情 ›</button>`
     ].join('');
     const predictionFormHtml = canPredict
@@ -418,9 +418,9 @@ function renderHomeFilters(filters) {
     }
     const finishedDays = filters.finished_window_days || 1;
     const finishedWindow = finishedDays === 1 ? '最近 24 小时' : `最近 ${finishedDays} 天`;
-    if (matchFilterSummaryEl) matchFilterSummaryEl.textContent = `未结束比赛 + ${finishedWindow}已结束比赛`;
+    if (matchFilterSummaryEl) matchFilterSummaryEl.textContent = `未结束 + ${finishedWindow}赛果`;
     // 范围说明放到场数的悬浮提示里（工具条不再单独占一行）
-    if (matchResultsMetaEl) matchResultsMetaEl.title = `范围：未结束比赛 + ${finishedWindow}已结束比赛`;
+    if (matchResultsMetaEl) matchResultsMetaEl.title = `显示未结束及${finishedWindow}内赛果`;
 }
 
 // 首页时间窗内一场比赛都没有（休赛期）：给出最近赛果和即将开始的赛事，而不是一块空白
@@ -429,7 +429,7 @@ async function renderHomeQuiet() {
     const token = ++quietToken;
     const game = state.game;
     const label = gameName(game);
-    matchesEl.innerHTML = `<div class="home-quiet"><div class="home-quiet-head"><h3>${escapeHtml(label)}近期没有比赛</h3><p>未来 7 天内暂无已排定的比赛，下面是最近的赛果和即将开始的赛事。</p></div><div class="home-quiet-body"><p class="home-quiet-loading">加载中…</p></div></div>`;
+    matchesEl.innerHTML = `<div class="home-quiet"><div class="home-quiet-head"><h3>${escapeHtml(label)}近期暂无比赛</h3><p>未来 7 天无赛程</p></div><div class="home-quiet-body"><p class="home-quiet-loading">加载中…</p></div></div>`;
     const gameQuery = game && game !== 'all' ? `&game_type=${encodeURIComponent(game)}` : '';
     const [recent, previews] = await Promise.all([
         api(`/matches?status=finished&order=desc&limit=6${gameQuery}`).catch(() => ({ matches: [] })),
@@ -459,7 +459,7 @@ async function renderHomeQuiet() {
     if (!body) return;
     body.innerHTML = `
         <section><h4>最近赛果</h4>${(recent.matches || []).length ? recent.matches.map(resultRow).join('') : '<p class="home-quiet-none">暂无赛果</p>'}</section>
-        <section><h4>即将开始的赛事</h4>${soon.length ? soon.map(previewRow).join('') : '<p class="home-quiet-none">暂无已公布的赛事</p>'}
+        <section><h4>后续赛事</h4>${soon.length ? soon.map(previewRow).join('') : '<p class="home-quiet-none">暂无预告</p>'}
             <a class="home-quiet-more" href="/tournaments.html${game && game !== 'all' ? `?game=${encodeURIComponent(game)}` : ''}">去赛事回看 ›</a></section>`;
 }
 
@@ -482,7 +482,7 @@ function renderMatchResults(opts = {}) {
     applyMatchView();
     if (!state.matches.length) {
         if (state.status || state.tournament) {
-            matchesEl.innerHTML = '<div class="empty-state"><h3>当前筛选下暂无比赛</h3><p>换个状态或赛事看看。</p><button type="button" class="button ghost" onclick="clearMatchFilters()">清除筛选</button></div>';
+            matchesEl.innerHTML = '<div class="empty-state"><h3>暂无符合条件的比赛</h3><p>试试切换筛选条件</p><button type="button" class="button ghost" onclick="clearMatchFilters()">清除筛选</button></div>';
             return;
         }
         renderHomeQuiet();
@@ -663,7 +663,7 @@ function renderHomeLoading() {
     renderHomeBracketShell('', '');
     if (matchResultsTitleEl) matchResultsTitleEl.textContent = '正在加载…';
     if (matchResultsMetaEl) matchResultsMetaEl.textContent = gameName(state.game);
-    if (matchesEl) matchesEl.innerHTML = '<div class="empty-state"><h3>正在加载比赛…</h3><p>切换游戏后重新获取赛程。</p></div>';
+    if (matchesEl) matchesEl.innerHTML = '<div class="empty-state"><h3>加载中…</h3></div>';
 }
 
 async function setGame(game) {
@@ -733,7 +733,7 @@ function showForfeitEditor(matchId) {
     };
     detailModalBodyEl.innerHTML = `
         <div class="modal-head"><h2>标记弃权</h2></div>
-        <p class="forfeit-hint">「${escapeHtml(match.team1_short_name || match.team1_name)} vs ${escapeHtml(match.team2_short_name || match.team2_name)}」开赛超过 5 小时未结算。选择获胜方后按 1-0 判定，所有预测不计分。</p>
+        <p class="forfeit-hint">选择获胜方，本场将按 1-0 判定弃权且不计分。</p>
         <div class="forfeit-options">${teamButton(1)}${teamButton(2)}</div>
         <p class="forfeit-error" id="forfeitError" hidden></p>
     `;

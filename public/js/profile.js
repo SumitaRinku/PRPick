@@ -162,7 +162,7 @@ function renderPredictions() {
     if (!predictions.length) {
         const any = profileState.predictions.length > 0;
         listEl.innerHTML = `<div class="pc-empty"><h3>${any ? '暂无匹配记录' : '暂无预测记录'}</h3>
-            <p>${any ? '换个筛选条件试试。' : '去<a href="/">比赛竞猜</a>提交预测后，会在这里显示。'}</p></div>`;
+            <p>${any ? '换个条件试试' : '去<a href="/">比赛竞猜</a>参与预测'}</p></div>`;
         return;
     }
     // 分页渲染：全量渲染上百条会拖慢长列表（移动端尤甚）
@@ -290,7 +290,7 @@ async function togglePredictionsPublic(publicPredictions) {
         const data = await sharedApi('/auth/visibility', { method: 'PUT', body: { predictions_public: publicPredictions ? 1 : 0 } });
         sharedState.user = { ...sharedState.user, ...data.user };
         localStorage.setItem('user', JSON.stringify(sharedState.user));
-        showFeedback('visibilityFeedback', publicPredictions ? '已公开：排行榜将展示你的成绩' : '已隐藏：排行榜不再展示你的成绩', 'ok');
+        showFeedback('visibilityFeedback', publicPredictions ? '已在排行榜公开' : '已从排行榜隐藏', 'ok');
     } catch (error) {
         el('visibilityToggle').checked = !publicPredictions;
         showFeedback('visibilityFeedback', error.message, 'err');
@@ -330,7 +330,7 @@ async function loadProfile() {
     }
     el('loginRequired').hidden = true;
     el('profileContent').hidden = false;
-    el('predictionList').innerHTML = '<div class="pc-loading">加载预测记录…</div>';
+    el('predictionList').innerHTML = '<div class="pc-loading">加载中…</div>';
     const data = await sharedApi('/predictions/my');
     profileState.predictions = data.predictions || [];
     profileState.stats = data.stats;

@@ -12,8 +12,8 @@ const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 20, messa
 
 router.post('/register', authLimiter, (req, res) => {
     const { username, password } = req.body;
-    if (!usernameRegex.test(username || '')) return res.status(400).json({ error: '用户名需为3-20位数字、字母或下划线' });
-    if (!password || password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+    if (!usernameRegex.test(username || '')) return res.status(400).json({ error: '用户名须为 3–20 位字母、数字或下划线' });
+    if (!password || password.length < 6) return res.status(400).json({ error: '密码至少 6 位' });
 
     try {
         const result = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, bcrypt.hashSync(password, 10));
@@ -51,7 +51,7 @@ router.put('/visibility', authenticateToken, (req, res) => {
 // 自助修改密码：需验证原密码。走 authLimiter，防止拿到 token 后暴力试原密码。
 router.put('/password', authLimiter, authenticateToken, (req, res) => {
     const { old_password, new_password } = req.body;
-    if (!new_password || new_password.length < 6) return res.status(400).json({ error: '新密码至少6位' });
+    if (!new_password || new_password.length < 6) return res.status(400).json({ error: '新密码至少 6 位' });
     const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.status(404).json({ error: '用户不存在' });
     if (!bcrypt.compareSync(old_password || '', user.password_hash)) return res.status(400).json({ error: '原密码错误' });

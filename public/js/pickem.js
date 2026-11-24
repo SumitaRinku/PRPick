@@ -17,7 +17,7 @@ function pkSlots(config) {
     if (config.kind === 'record') {
         return [
             { key: 'top', label: `${config.wins}-0 全胜晋级`, count: config.top_count, points: 1, tone: 'advance' },
-            { key: 'advance', label: '晋级', hint: '任意战绩晋级都算对', count: config.advance_count, points: 1, tone: 'advance' },
+            { key: 'advance', label: '晋级', hint: '晋级即得分', count: config.advance_count, points: 1, tone: 'advance' },
             { key: 'bottom', label: `0-${config.losses} 全败出局`, count: config.bottom_count, points: 1, tone: 'eliminate' }
         ].filter(slot => slot.count > 0);
     }
@@ -173,8 +173,8 @@ function pkStageHtml(stage) {
     const editable = pkEditable(stage);
     const dirty = pkDirty(stage);
     const busy = pickem.busy.has(stage.id);
-    const loginHint = !stage.locked && !sharedState.user ? '<p class="pk-hint">登录后即可参与 Pick\'em。</p>' : '';
-    const editHint = editable ? `<p class="pk-hint">先点上方名额，再点队伍放入；再次点击移除。当前名额：<b>${pkEsc(slots.find(slot => slot.key === activeKey)?.label || '')}</b></p>` : '';
+    const loginHint = !stage.locked && !sharedState.user ? '<p class="pk-hint">登录后参与</p>' : '';
+    const editHint = editable ? `<p class="pk-hint">当前选择：<b>${pkEsc(slots.find(slot => slot.key === activeKey)?.label || '')}</b>（点下方队伍填入，再点移除）</p>` : '';
     const actions = editable ? `<footer class="pk-actions ${dirty ? 'dirty' : ''}">
             ${stage.mine ? `<button type="button" class="ghost" ${busy ? 'disabled' : ''} onclick="pkClear(${stage.id})">清除竞猜</button>` : ''}
             ${dirty ? `<button type="button" class="ghost" ${busy ? 'disabled' : ''} onclick="pkReset(${stage.id})">撤销修改</button>` : ''}
@@ -192,7 +192,6 @@ function pkStageHtml(stage) {
         <div class="pk-slots ${editable ? 'editing' : ''}">${slots.map(slot => pkSlotRow(stage, slot, slot.key === activeKey)).join('')}</div>
         ${loginHint}${editHint}
         <div class="pk-team-grid">${stage.teams.map(team => pkTeamButton(stage, team, slotOf, activeKey)).join('')}</div>
-        ${stage.teams.length && !stage.locked ? '<p class="pk-note">队伍名单以已确定的对阵为准。</p>' : ''}
         ${actions}
     </section>`;
 }
@@ -212,15 +211,15 @@ function pkCoinPanel() {
     const max = coins.max_points;
     const me = pickem.data.me;
     const ticks = coins.tiers.map(tier => `<span class="pk-coin-tick" style="left:${Math.min(100, tier.points / max * 100)}%">${pkCoinIcon(tier.key, 'xs')}<small>${tier.points}</small></span>`).join('');
-    const legend = `<p class="pk-coin-legend">参与即得${pkCoinIcon('bronze', 'xs')}铜币 · ${coins.tiers.map(tier => `${pkCoinIcon(tier.key, 'xs')}${tier.label} ${tier.points} 分`).join(' · ')}<span class="pk-coin-note">按已开放阶段满分 ${max} 计算，后续阶段开放后门槛随之上调</span></p>`;
+    const legend = `<p class="pk-coin-legend">参与即得${pkCoinIcon('bronze', 'xs')}铜币 · ${coins.tiers.map(tier => `${pkCoinIcon(tier.key, 'xs')}${tier.label} ${tier.points} 分`).join(' · ')}<span class="pk-coin-note">当前满分 ${max} 分，随新阶段开放调整</span></p>`;
     if (!me?.participated) {
         return `<section class="pk-coin-panel empty">
-            <div class="pk-coin-head">${pkCoinIcon('bronze', 'lg')}<div><b>参与 Pick'em 赢取硬币</b><small>${sharedState.user ? '提交任一阶段即获得铜币' : '登录后提交任一阶段即获得铜币'}</small></div></div>
+            <div class="pk-coin-head">${pkCoinIcon('bronze', 'lg')}<div><b>Pick'em 纪念币</b><small>${sharedState.user ? '提交任意阶段即可获得铜币' : '登录后提交即可获得铜币'}</small></div></div>
             ${legend}
         </section>`;
     }
     const pct = Math.min(100, me.points / max * 100);
-    const next = me.coin?.next ? `再得 <b>${me.coin.next.need}</b> 分升级${pkEsc(me.coin.next.label)}` : '已获得最高等级';
+    const next = me.coin?.next ? `再得 <b>${me.coin.next.need}</b> 分升级${pkEsc(me.coin.next.label)}` : '已达最高等级';
     return `<section class="pk-coin-panel">
         <div class="pk-coin-head">${pkCoinIcon(me.coin.key, 'lg')}<div><b>${pkEsc(me.coin.label)}</b><small>${me.points}/${max} 分 · ${next}</small></div>
             ${typeof sharePickemSummary === 'function' ? '<button type="button" class="pk-share-btn" onclick="sharePickemSummary()">分享我的作业</button>' : ''}</div>
@@ -237,7 +236,7 @@ function pkLeaderboardHtml(rows) {
         <ol>${rows.map(row => `<li class="${row.user_id === me ? 'me' : ''}">
             <span class="pk-rank ${row.rank <= 3 ? `top${row.rank}` : ''}">${row.rank}</span>
             <strong>${pkCoinIcon(row.coin?.key, 'xs')}${pkEsc(row.username)}</strong>
-            <small>猜中 ${row.correct}/${row.decided} 项已决</small>
+            <small>命中 ${row.correct}/${row.decided}</small>
             <b>${row.points} 分</b>
         </li>`).join('')}</ol>
     </section>`;
@@ -246,10 +245,10 @@ function pkLeaderboardHtml(rows) {
 function pkInnerHtml() {
     const stages = pickem.data?.stages || [];
     return `<div class="pk-intro">
-            <p>开赛前预测每个阶段的晋级与名次，独立计分，不影响单场竞猜积分。战绩阶段每猜中一项 1 分；淘汰赛冠军 3 分、亚军 2 分、其余四强每队 1 分。</p>
+            <p>赛前预测各阶段晋级与名次，独立计分。瑞士轮/小组赛每中 1 项得 1 分；淘汰赛冠军 3 分、亚军 2 分、四强各 1 分。</p>
         </div>
         ${stages.length ? pkCoinPanel() : ''}
-        ${stages.map(pkStageHtml).join('') || '<div class="rv-empty">本赛事暂无可竞猜的阶段</div>'}
+        ${stages.map(pkStageHtml).join('') || '<div class="rv-empty">暂无开放阶段</div>'}
         ${pkLeaderboardHtml(pickem.data?.leaderboard)}`;
 }
 

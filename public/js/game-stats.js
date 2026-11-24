@@ -160,7 +160,7 @@ function draftRow(name, side, actions) {
 
 function lolPlayerTable(name, side, players, minutes, won) {
     const rows = orderLolPlayers(players).map(({ p, role, sure }) => `<tr>
-        <td class="gs-role ${sure ? '' : 'guess'}" title="${sure ? '按分路任务奖励确定' : '按补刀与英雄定位推断'}">${role}</td>
+        <td class="gs-role ${sure ? '' : 'guess'}"${sure ? '' : ' title="推断位置"'}>${role}</td>
         <td class="gs-player">${champIcon(p.champion)}<span><b>${gsEsc(p.name)}</b><small>${gsEsc(champLabel(p.champion))}${p.level ? ` · ${p.level} 级` : ''}</small></span></td>
         <td class="gs-kda"><b>${p.kills ?? '-'}/${p.deaths ?? '-'}/${p.assists ?? '-'}</b></td>
         <td>${p.cs ?? '-'}<small>${minutes && Number.isFinite(p.cs) ? (p.cs / minutes).toFixed(1) : ''}</small></td>
@@ -199,7 +199,7 @@ function lolGameHtml(match, game) {
             ${compareRow('经济', t1.gold, t2.gold, fmtK)}
             ${compareRow('推塔', t1.towers, t2.towers)}
             ${compareRow('大龙', t1.barons, t2.barons)}
-            <details class="gs-more"><summary>更多数据（小龙、先锋、幼虫、水晶、伤害）</summary>
+            <details class="gs-more"><summary>更多数据</summary>
                 ${compareRow('小龙', t1.dragons, t2.dragons)}
                 ${(t1.elders || t2.elders) ? compareRow('远古龙', t1.elders, t2.elders) : ''}
                 ${compareRow('峡谷先锋', t1.heralds, t2.heralds)}
@@ -381,7 +381,7 @@ function sortedRows(rows, column, dir) {
 }
 
 function tournamentStatsHtml(id, stats) {
-    if (!stats || !stats.games) return '<div class="rv-empty">暂无详细数据（比赛需关联 GRID 数据，结束后自动汇总）</div>';
+    if (!stats || !stats.games) return '<div class="rv-empty">暂无数据</div>';
     const columns = T_COLUMNS[stats.game === 'lol' ? 'lol' : 'shooter'];
     const tabs = tournamentTabs(stats);
     const tab = tabs.some(([key]) => key === gameStats.tTab[id]) ? gameStats.tTab[id] : tabs[0][0];
@@ -393,7 +393,7 @@ function tournamentStatsHtml(id, stats) {
     return `<div class="gs-tstats" data-gs-tid="${gsEsc(id)}">
         <div class="gs-tstats-head">
             <nav class="gs-tabs">${tabs.map(([key, label]) => `<button type="button" class="gs-tab ${key === tab ? 'active' : ''}" onclick="gsTournamentTab('${gsEsc(id)}', '${key}')">${label}</button>`).join('')}</nav>
-            <small>共 ${stats.games} ${unit}有详细数据 · 点表头排序${stats.game === 'lol' ? ' · 数据来自 GRID Open Access' : ''}</small>
+            <small>共统计 ${stats.games} ${unit} · 点击表头排序</small>
         </div>
         <div class="gs-table-wrap"><table class="gs-table gs-ttable">
             <thead><tr>${cols.map(([key, label]) => `<th class="sortable ${sort?.key === key ? (sort.dir > 0 ? 'asc' : 'desc') : ''}" onclick="gsTournamentSort('${gsEsc(id)}', '${tab}', '${key}')">${label}</th>`).join('')}</tr></thead>
@@ -433,7 +433,7 @@ function tournamentStatsContainer(id, gameType) {
         }
         rerenderTournamentStats(key);
     }, 0);
-    return `<div data-gs-tournament="${gsEsc(key)}"><div class="rv-loading">加载数据中…</div></div>`;
+    return `<div data-gs-tournament="${gsEsc(key)}"><div class="rv-loading">加载中…</div></div>`;
 }
 
 window.gsIconFallback = gsIconFallback;

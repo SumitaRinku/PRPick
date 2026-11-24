@@ -26,9 +26,7 @@
             <div id="userPanel"></div>
         </nav>
         <section>
-            <p class="eyebrow">Team Hub</p>
             <h1>队伍中心</h1>
-            <p>查看队伍近期战绩、下一场比赛与赛事履历。</p>
         </section>
     </header>
 
@@ -37,7 +35,7 @@
             <div class="th-bar">
                 <label class="th-search">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.45l4.25 4.25 1.4-1.4-4.25-4.25A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z" fill="currentColor"/></svg>
-                    <input id="teamSearch" type="search" placeholder="搜索队伍名称或简称" aria-label="搜索队伍" autocomplete="off">
+                    <input id="teamSearch" type="search" placeholder="搜索队伍" aria-label="搜索队伍" autocomplete="off">
                 </label>
                 <div id="teamGameSeg" class="th-seg" role="group" aria-label="游戏类型" data-game-switch></div>
                 <div class="th-selects">
@@ -52,14 +50,14 @@
                     <label>范围
                         <select id="teamActivity" aria-label="队伍范围">
                             <option value="">全部队伍</option>
-                            <option value="active">有比赛记录</option>
-                            <option value="upcoming">有待赛比赛</option>
+                            <option value="active">有赛果</option>
+                            <option value="upcoming">即将开赛</option>
                         </select>
                     </label>
                 </div>
                 <span id="teamCount" class="th-count"></span>
             </div>
-            <div id="teamsGrid" class="th-grid"><div class="th-loading">加载队伍中...</div></div>
+            <div id="teamsGrid" class="th-grid"><div class="th-loading">加载中…</div></div>
         </section>
         <section id="teamDetailView" class="th-detail" hidden></section>
     </main>

@@ -425,7 +425,7 @@ async function loadAll() {
     if (!isAdmin()) return;
     syncGameSeg();
     state.loading = true;
-    if (!state.loaded) $('#opsView').innerHTML = '<div class="ops-loading">加载后台数据…</div>';
+    if (!state.loaded) $('#opsView').innerHTML = '<div class="ops-loading">加载中…</div>';
     const q = state.game ? `game_type=${encodeURIComponent(state.game)}` : '';
     try {
         const [stats, tournaments, teams, matchGroups, users, predictions, previews] = await Promise.all([
@@ -634,7 +634,7 @@ const matchesView = {
 // ---------- 赛事 ----------
 
 function tierPill(t) {
-    const label = t.effective_tier === 1 ? '高级' : t.effective_tier === 3 ? '低级' : '普通';
+    const label = t.effective_tier === 1 ? '顶级' : t.effective_tier === 3 ? '预选' : '常规';
     const cls = t.effective_tier === 1 ? 'tier-top' : t.effective_tier === 3 ? 'tier-low' : '';
     const manual = t.tier !== null && t.tier !== undefined ? '<span class="tier-manual" title="手动设置，同步不覆盖">●</span>' : '';
     return `<span class="tier-badge ${cls}">${label}</span>${manual}`;
@@ -645,7 +645,7 @@ const tournamentsView = {
         return toolbar('赛事管理', `
             ${searchBox('tournaments', '搜索赛事名称 / 简称 / ID')}
             ${filterSelect('tournaments', 'active', [['', '全部启用状态'], ['1', '已启用'], ['0', '已禁用']])}
-            ${filterSelect('tournaments', 'tier', [['', '全部级别'], ['1', '高级'], ['2', '普通'], ['3', '低级']])}
+            ${filterSelect('tournaments', 'tier', [['', '全部级别'], ['1', '顶级'], ['2', '常规'], ['3', '预选']])}
             ${filterSelect('tournaments', 'source', [['', '全部来源'], ['pandascore', '自动同步'], ['manual', '手动创建']])}`,
         'tournament-create', '新增赛事');
     },
@@ -673,7 +673,7 @@ const previewsView = {
         return toolbar('未来赛事预告', `
             ${searchBox('previews', '搜索赛事名称 / 游戏')}
             ${filterSelect('previews', 'visible', [['', '全部显示状态'], ['1', '前台显示'], ['0', '已隐藏']])}
-            <span class="ops-muted ops-note">仅控制赛事回看页的预告板块，不影响比赛与积分</span>`);
+            <span class="ops-muted ops-note">控制赛事回看页的预告展示</span>`);
     },
     table() {
         return tableBlock('previews', [['赛事'], ['游戏', 'center'], ['开始', 'nowrap'], ['结束', 'nowrap'], ['前台', 'center']], filteredPreviews(), p => `
@@ -815,7 +815,6 @@ function createMatch() {
     const first = state.tournaments[0];
     openModal({
         title: '新增比赛',
-        hint: '队伍列表随所选赛事的游戏自动过滤',
         body: `<div class="ops-form-grid">
             ${field('赛事', select('tournament_id', state.tournaments.map(t => [t.id, `${t.name}（${GAME_LABELS[t.game_type]}）`]), first.id), { wide: true })}
             ${field('队伍 1', select('team1_id', teamOptionsFor(first.game_type)))}
@@ -850,8 +849,8 @@ function editMatch(id) {
         title: '编辑比赛',
         hint: `#${m.id} ${m.team1_name} vs ${m.team2_name}（${m.tournament_name}）`,
         body: `<div class="ops-form-grid">
-            ${field('状态', select('status', Object.entries(STATUS_LABELS), m.status), { hint: '标记为已结算前需先录入赛果' })}
-            ${field('赛制', finished ? `<input value="${esc(m.format)}" disabled><input type="hidden" name="format" value="${esc(m.format)}">` : select('format', [['BO1', 'BO1'], ['BO3', 'BO3'], ['BO5', 'BO5']], m.format), { hint: finished ? '已结算比赛不能修改赛制' : '' })}
+            ${field('状态', select('status', Object.entries(STATUS_LABELS), m.status), { hint: '结算请用「录赛果」' })}
+            ${field('赛制', finished ? `<input value="${esc(m.format)}" disabled><input type="hidden" name="format" value="${esc(m.format)}">` : select('format', [['BO1', 'BO1'], ['BO3', 'BO3'], ['BO5', 'BO5']], m.format), { hint: finished ? '已结算不可修改' : '' })}
             ${field('开赛时间', input('match_time', toLocalInput(m.match_time), 'type="datetime-local"'))}
             ${field('备注 / 阶段', input('name', m.name || ''))}
         </div>`,
@@ -872,7 +871,7 @@ function setResult(id) {
     const chips = legalScores(m.format).map(([a, b]) => `<button type="button" class="ops-chip" data-score="${a}:${b}">${a} : ${b}</button>`).join('');
     openModal({
         title: '录入赛果',
-        hint: `${m.format} 赛制，录入后自动结算预测积分，并锁定赛果不被同步覆盖`,
+        hint: `${m.format} · 保存后自动结算并锁定赛果`,
         body: `<div class="ops-score-form">
             <div class="ops-score-team">${esc(m.team1_name)}</div>
             <input name="team1_score" type="number" min="0" max="3" inputmode="numeric" value="${m.team1_score ?? ''}" required aria-label="${esc(m.team1_name)} 比分">
@@ -907,7 +906,7 @@ function setForfeit(id) {
     const m = requireRow(state.matches, id, '比赛');
     openModal({
         title: '设置弃权',
-        hint: '弃权按 1-0 记录，所有预测不计积分',
+        hint: '按 1-0 判定，本场预测不计分',
         body: `<div class="ops-radio-list">
             <label><input type="radio" name="winner" value="${m.team1_id}" checked><span><b>${esc(m.team1_name)}</b> 胜（${esc(m.team2_name)} 弃权）</span></label>
             <label><input type="radio" name="winner" value="${m.team2_id}"><span><b>${esc(m.team2_name)}</b> 胜（${esc(m.team1_name)} 弃权）</span></label>
@@ -931,7 +930,7 @@ function deleteMatch(id) {
     const m = requireRow(state.matches, id, '比赛');
     confirmAction({
         title: '删除比赛',
-        message: `确认删除 ${m.team1_name} vs ${m.team2_name}？该比赛的所有预测会一并删除，用户积分将重新计算。`,
+        message: `删除 ${m.team1_name} vs ${m.team2_name}？关联预测将一并清除并重算积分。`,
         confirmText: '删除',
         async run() {
             await api(`/admin/matches/${m.id}`, { method: 'DELETE' });
@@ -942,17 +941,17 @@ function deleteMatch(id) {
 
 // ---------- 赛事操作 ----------
 
-const TIER_OPTIONS = [['', '自动（按名称关键词推断）'], ['1', '高级（Major 级）'], ['2', '普通'], ['3', '低级（预选赛级）']];
+const TIER_OPTIONS = [['', '自动识别'], ['1', '顶级（国际大赛）'], ['2', '常规'], ['3', '预选']];
 
 function tournamentForm(t = {}) {
     const tier = t.tier === null || t.tier === undefined ? '' : String(t.tier);
     return `<div class="ops-form-grid">
         ${field('名称', input('name', t.name || '', 'required'), { wide: true })}
-        ${field('简称', input('short_name', t.short_name || '', 'placeholder="如：IEM 科隆"'), { hint: '主页筛选与移动端展示' })}
+        ${field('简称', input('short_name', t.short_name || '', 'placeholder="如：IEM 科隆"'), { hint: '用于筛选栏和窄屏显示' })}
         ${field('游戏', select('game_type', GAME_OPTIONS, t.game_type || state.game || 'cs2'))}
         ${field('开始日期', input('begin_at', dateOnly(t.begin_at), 'type="date"'))}
         ${field('结束日期', input('end_at', dateOnly(t.end_at), 'type="date"'))}
-        ${t.id ? field('级别', select('tier', TIER_OPTIONS, tier), { hint: 'Major/Masters/Champions → 高级，Qualifier/预选赛 → 低级；手动设置后同步不覆盖', wide: true }) : ''}
+        ${t.id ? field('级别', select('tier', TIER_OPTIONS, tier), { hint: '手动指定后不会被自动同步覆盖', wide: true }) : ''}
     </div>`;
 }
 
@@ -1000,7 +999,7 @@ async function toggleTournament(id) {
     }
     confirmAction({
         title: '禁用赛事',
-        message: `禁用「${t.name}」后，前台不再展示该赛事，未结束比赛关闭预测，后续自动同步也会跳过它。`,
+        message: `禁用「${t.name}」？前台将隐藏该赛事、关闭未开赛预测，且不再同步。`,
         confirmText: '禁用',
         run
     });
@@ -1011,12 +1010,12 @@ async function togglePreview(id) {
     const p = requireRow(state.previews, id, '赛事预告');
     const next = p.is_visible ? 0 : 1;
     await api(`/admin/previews/${p.id}/visibility`, { method: 'PUT', body: { is_visible: next } });
-    toast(await refresh(next ? '已在前台显示该赛事预告' : '已在前台隐藏该赛事预告'));
+    toast(await refresh(next ? '已显示预告' : '已隐藏预告'));
 }
 
 function deleteTournament(id) {
     const t = requireRow(state.tournaments, id, '赛事');
-    if (t.match_count > 0) throw new Error(`该赛事下还有 ${t.match_count} 场比赛，不能删除；可改为禁用`);
+    if (t.match_count > 0) throw new Error(`赛事下仍有 ${t.match_count} 场比赛，无法删除，可改为禁用`);
     confirmAction({
         title: '删除赛事',
         message: `确认删除「${t.name}」？`,
@@ -1058,7 +1057,7 @@ async function editTournamentPickem(id) {
     </fieldset>`).join('');
     openModal({
         title: `Pick'em 设置 · ${t.name}`,
-        hint: '战绩参数仅在选择「战绩门槛」时生效。修改已有竞猜阶段的类型会使旧竞猜无法计分。',
+        hint: '修改已有竞猜的阶段类型会导致旧记录无法计分',
         body,
         onSubmit: async values => {
             let changed = 0;
@@ -1098,7 +1097,7 @@ function uploadTournamentLogo(id) {
 function removeTournamentLogo(id) {
     confirmAction({
         title: '清除 Logo',
-        message: '清除手动上传的 logo？清除后回退到按名称匹配的默认 logo。',
+        message: '确认清除上传的 Logo 并恢复默认？',
         confirmText: '清除',
         async run() {
             await api(`/admin/tournaments/${id}/logo`, { method: 'DELETE' });
@@ -1137,7 +1136,7 @@ function editTeam(id) {
     openModal({
         title: '编辑队伍',
         // 服务端按 COALESCE 更新：留空表示保留原值，而不是清空
-        hint: `#${t.id} 来源：${sourceLabel(t)}，留空的字段保持原值`,
+        hint: `#${t.id} · ${sourceLabel(t)} · 留空保持原值`,
         body: teamForm(t),
         async onSubmit(data) {
             await api(`/admin/teams/${t.id}`, { method: 'PUT', body: data });
@@ -1150,7 +1149,7 @@ function deleteTeam(id) {
     const t = requireRow(state.teams, id, '队伍');
     confirmAction({
         title: '删除队伍',
-        message: `确认删除「${t.name}」？有关联比赛的队伍无法删除。`,
+        message: `确认删除「${t.name}」？（有关联比赛时无法删除）`,
         confirmText: '删除',
         async run() {
             await api(`/admin/teams/${t.id}`, { method: 'DELETE' });
@@ -1184,7 +1183,7 @@ function toggleRole(id) {
     const next = u.role === 'admin' ? 'user' : 'admin';
     confirmAction({
         title: next === 'admin' ? '设为管理员' : '取消管理员',
-        message: next === 'admin' ? `将「${u.username}」设为管理员？管理员拥有本后台的全部权限。` : `将「${u.username}」降为普通用户？`,
+        message: next === 'admin' ? `确认将「${u.username}」设为管理员？` : `将「${u.username}」降为普通用户？`,
         confirmText: '确认',
         danger: next === 'admin',
         async run() {
@@ -1198,7 +1197,7 @@ function resetPassword(id) {
     const u = requireRow(state.users, id, '用户');
     openModal({
         title: '重置密码',
-        hint: `用户 ${u.username} 重置后，其已登录会话将全部失效`,
+        hint: `重置后 ${u.username} 需重新登录`,
         body: field('新密码', input('password', '', 'type="password" required autocomplete="new-password"'), { hint: '至少 6 位' }),
         submitText: '重置',
         async onSubmit(data) {
@@ -1213,7 +1212,7 @@ function deleteUser(id) {
     const u = requireRow(state.users, id, '用户');
     confirmAction({
         title: '删除用户',
-        message: `确认删除「${u.username}」？其全部预测记录会一并删除，排行榜将重新计算。`,
+        message: `确认删除「${u.username}」？其预测记录将一并清除。`,
         confirmText: '删除',
         async run() {
             await api(`/admin/users/${u.id}`, { method: 'DELETE' });

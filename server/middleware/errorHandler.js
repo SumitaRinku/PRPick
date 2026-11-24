@@ -60,7 +60,7 @@ function errorLogger(error, req, res, next) {
     });
 
     res.status(statusCode).json({
-        error: 'Internal server error',
+        error: '服务器内部错误',
         errorId,
         statusCode
     });
@@ -80,13 +80,13 @@ function validationError(message, field = null) {
  */
 function handleDatabaseError(error) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        return new ApiError('Resource already exists', 409);
+        return new ApiError('记录已存在', 409);
     }
     if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-        return new ApiError('Invalid foreign key reference', 400);
+        return new ApiError('关联数据不存在', 400);
     }
     // Generic database error
-    return new ApiError('Database operation failed', 500, { originalCode: error.code });
+    return new ApiError('数据操作失败', 500, { originalCode: error.code });
 }
 
 module.exports = {

@@ -21,7 +21,7 @@ function createBotAccountRouter(db, authenticate) {
             db.prepare('DELETE FROM bot_bind_codes WHERE user_id=?').run(req.user.id);
             db.prepare('DELETE FROM bot_bindings WHERE user_id=?').run(req.user.id);
         })();
-        res.json({ message: '已解除绑定并撤销待使用的绑定码' });
+        res.json({ message: '已解除绑定' });
     });
     return router;
 }

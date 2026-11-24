@@ -5,7 +5,7 @@
         try {
             const qq = document.getElementById('botBindingQQ').value.trim();
             const result = await sharedApi('/bot-account/code', { method: 'POST', body: { qq_id: qq } });
-            feedback.textContent = `请用 QQ ${qq} 在启用功能的群内发送：/pick 绑定 ${result.code}（10 分钟有效，仅限此 QQ 使用）`;
+            feedback.textContent = `请用 QQ ${qq} 在群内发送：/pick 绑定 ${result.code}（10 分钟内有效）`;
         } catch (error) { feedback.textContent = error.message; }
     });
     document.getElementById('botUnbind').addEventListener('click', async () => {
@@ -17,7 +17,7 @@
     function refresh() {
         if (!sharedState.token) { feedback.textContent = ''; return; }
         sharedApi('/bot-account').then(result => {
-            feedback.textContent = result.binding ? `已绑定 QQ ${result.binding.qq_id}；已加入 ${result.groups.length} 个群的竞猜展示。` : '尚未绑定 QQ';
+            feedback.textContent = result.binding ? `已绑定 QQ ${result.binding.qq_id}（已加入 ${result.groups.length} 个群）` : '尚未绑定 QQ';
         }).catch(() => {});
     }
     window.addEventListener('auth-changed', refresh);
