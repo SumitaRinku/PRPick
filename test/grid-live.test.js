@@ -49,6 +49,41 @@ test('LoL team names from GRID match their PandaScore counterparts (real 2026 pa
     assert.ok(teamSimilarity(['Karmine Corp', 'KC'], ['Karmine Corp Blue', 'KCB']) < 0.8);
 });
 
+test('PGL Major Singapore 2026 sponsor-renamed and title-sponsored teams match GRID series', () => {
+    const pairs = [
+        [['9z', '9z'], ['9z Globant', '']],
+        [['Lynn Vision', 'LVG'], ['Lynn Vision Gaming', 'Lynn Vision']],
+        [['GOSH', 'GOSH'], ['BC.Game', '']],
+        [['GOSH', 'GOSH'], ['BC.Game Esports', 'BCG']],
+        [['PVISION', 'PV'], ['Parivision', '']],
+        [['BB Team', 'BB'], ['BetBoom Team', '']]
+    ];
+    for (const [local, grid] of pairs) {
+        assert.equal(teamSimilarity(local, grid), 1, `${local[0]} ↔ ${grid[0]}`);
+    }
+    assert.ok(teamSimilarity(['9z Academy', '9z.A'], ['9z Globant', '']) < 0.8);
+
+    const series = [
+        gridSeries('3025768', '2026-11-24T04:00:00Z', [['49627', 'Heroic'], ['49619', 'Imperial']]),
+        gridSeries('3025769', '2026-11-24T04:00:00Z', [['51864', '9z Globant'], ['49575', 'Lynn Vision Gaming']]),
+        gridSeries('3025772', '2026-11-24T06:00:00Z', [['51815', 'Team Liquid'], ['58719', 'BC.Game']]),
+        gridSeries('3025773', '2026-11-24T06:00:00Z', [['52389', 'Parivision'], ['58077', 'DENDELE CS']])
+    ];
+    const matches = [
+        { team1_name: 'Heroic', team1_short_name: 'HERO', team2_name: 'Imperial', team2_short_name: 'IMP', match_time: '2026-11-24T04:00:00.000Z', expected: '3025768' },
+        { team1_name: '9z', team1_short_name: '9z', team2_name: 'Lynn Vision', team2_short_name: 'LVG', match_time: '2026-11-24T04:00:00.000Z', expected: '3025769' },
+        { team1_name: 'Liquid', team1_short_name: 'TL', team2_name: 'GOSH', team2_short_name: 'GOSH', match_time: '2026-11-24T06:00:00.000Z', expected: '3025772' },
+        { team1_name: 'PVISION', team1_short_name: 'PV', team2_name: 'DENDELE CS', team2_short_name: 'DEN', match_time: '2026-11-24T06:00:00.000Z', expected: '3025773' }
+    ];
+    const taken = new Set();
+    for (const match of matches) {
+        const pick = pickSeriesForMatch(match, series, { excludeSeriesIds: taken });
+        assert.ok(pick, `${match.team1_name} vs ${match.team2_name} should match`);
+        assert.equal(pick.series.id, match.expected);
+        taken.add(pick.series.id);
+    }
+});
+
 test('pickSeriesForMatch handles swapped order and prefers the closest start time', () => {
     const match = { team1_name: 'Natus Vincere', team1_short_name: 'NAVI', team2_name: 'PARIVISION', team2_short_name: null, match_time: '2026-11-06T06:30:00Z' };
     const series = [

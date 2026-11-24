@@ -2,10 +2,10 @@
 // 两个数据源没有互通 ID，只能按「双方队名 + 开赛时间」配对。
 
 // 只影响写法、不影响身份的通用词；"academy"/"junior" 等代表不同阵容，不能去掉。
-// 冠名赞助商也算（GRID 常带赞助商全名：Team Liquid Alienware、Cloud9 Kia）。
-const NOISE_TOKENS = new Set(['team', 'esports', 'esport', 'gaming', 'clan', 'gg', 'alienware', 'kia']);
+// 冠名赞助商也算（GRID 常带赞助商全名：Team Liquid Alienware、Cloud9 Kia、9z Globant）。
+const NOISE_TOKENS = new Set(['team', 'esports', 'esport', 'gaming', 'clan', 'gg', 'alienware', 'kia', 'globant']);
 
-// 常见缩写 ↔ 全称：归一化后整体替换（键值都是归一化后的形式）。
+// 常见缩写 / Major 临时队名 ↔ 全称：逐 token 或整体归一化后替换（键值都是归一化后的形式）。
 const ALIASES = new Map([
     ['navi', 'natusvincere'],
     ['vp', 'virtuspro'],
@@ -14,6 +14,10 @@ const ALIASES = new Map([
     ['nip', 'ninjasinpyjamas'],
     ['col', 'complexity'],
     ['big', 'berlininternationalgaming'],
+    // Valve Major 规避博彩赞助商改名（PandaScore 用简称/代称，GRID 仍用原队名）
+    ['pvision', 'parivision'],
+    ['gosh', 'bcgame'],
+    ['bb', 'betboom'],
     // LoL：GRID 有时把 Gaming 连写（WeiboGaming）
     ['weibogaming', 'weibo']
 ]);
@@ -38,7 +42,8 @@ function tokenize(value) {
 }
 
 function normalizeTeamName(value) {
-    return tokenize(value).map(token => ALIASES.get(token) || token).join('');
+    const joined = tokenize(value).map(token => ALIASES.get(token) || token).join('');
+    return ALIASES.get(joined) || joined;
 }
 
 function rosterTag(value) {
